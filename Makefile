@@ -1,7 +1,7 @@
 BINARY_NAME=glox
 
 build:
-	go build -o ./${BINARY_NAME} glox.go
+	go build -o ./${BINARY_NAME} *.go
 
 run:
 	./${BINARY_NAME}

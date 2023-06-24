@@ -1,7 +1,31 @@
 package main
 
-func newScanner(source string) scanner {
-	return scanner{
+import (
+	"fmt"
+	"strconv"
+)
+
+var reservedWords = map[string]tokenType{
+	"and":    And,
+	"class":  Class,
+	"else":   Else,
+	"false":  False,
+	"for":    For,
+	"fun":    Fun,
+	"if":     If,
+	"nil":    Nil,
+	"or":     Or,
+	"print":  Print,
+	"return": Return,
+	"super":  Super,
+	"this":   This,
+	"true":   True,
+	"var":    Var,
+	"while":  While,
+}
+
+func newScanner(source string) *scanner {
+	return &scanner{
 		source:  source,
 		start:   0,
 		current: 0,
@@ -37,7 +61,7 @@ func (s scanner) scanTokens() []token {
 	return s.tokens
 }
 
-func (s scanner) scanToken() {
+func (s *scanner) scanToken() {
 	c := s.advance()
 	// Handle the single characters first.
 	switch c {
@@ -87,7 +111,7 @@ func (s scanner) scanToken() {
 		}
 	case '/':
 		if s.match('/') {
-			// Comment does until the end of the line.
+			// Comment goes until the end of the line.
 			for s.peek() != '\n' && !s.isAtEnd() {
 				s.advance()
 			}
@@ -103,12 +127,23 @@ func (s scanner) scanToken() {
 	case '"':
 		s.scanString()
 	default:
-		printErr(s.line, "Unexpected character.")
+		// Handling numbers is a bit tedious so put it in the default case and
+		// handle the cases in isDigit(). This has the weird case that
+		// print(-123.abs()) will give you -123 since -123 is considered as negation
+		// applied to the number 123 and -123.abs() is really -(123.abs()).
+		if isDigit(c) {
+			s.scanNumber()
+		} else if isAlpha(c) {
+			s.scanIdentifier()
+		} else {
+			printErr(s.line, fmt.Sprintf("Unexpected character: %c.", c))
+		}
 	}
 }
 
-func (s scanner) scanString() {
+func (s *scanner) scanString() {
 	for s.peek() != '"' && !s.isAtEnd() {
+		// glox supports strings.
 		if s.peek() == '\n' {
 			s.line++
 		}
@@ -127,10 +162,47 @@ func (s scanner) scanString() {
 	s.addTokenWithLiteral(String, value)
 }
 
-func (s scanner) match(expected rune) bool {
+func (s *scanner) scanNumber() {
+	// Consume the rest of the digits.
+	for isDigit(s.peek()) {
+		s.advance()
+	}
+
+	// Check for the fractional part.
+	if s.peek() == '.' && isDigit(s.peekNext()) {
+		// Consume the '.'
+		for isDigit(s.peek()) {
+			s.advance()
+		}
+	}
+
+	text := string([]rune(s.source)[s.start:s.current])
+	n, err := strconv.ParseFloat(text, 64)
+	if err != nil {
+		printErr(s.line, fmt.Sprintf("Unable to parse string: %v.", err))
+	}
+	s.addTokenWithLiteral(Number, n)
+}
+
+func (s *scanner) scanIdentifier() {
+	for isAlphaNumeric(s.peek()) {
+		s.advance()
+	}
+
+	// TODO: Make substring conversation its own function.
+	text := string([]rune(s.source)[s.start:s.current])
+	tokenType, ok := reservedWords[text]
+	if !ok {
+		tokenType = Identifier
+	}
+	s.addToken(tokenType)
+}
+
+func (s *scanner) match(expected rune) bool {
 	if s.isAtEnd() {
 		return false
 	}
+	// TODO: How efficient is this []rune cast?
 	current := []rune(s.source)[s.current]
 	if current != expected {
 		return false
@@ -139,36 +211,57 @@ func (s scanner) match(expected rune) bool {
 	return true
 }
 
-func (s scanner) peek() rune {
+func (s *scanner) peek() rune {
 	if s.isAtEnd() {
 		return '\000'
 	}
 	return []rune(s.source)[s.current]
 }
 
-// Whether we have consumed all characters in `source`.
-func (s scanner) isAtEnd() bool {
+// peekNext does lookahead by 2 characters. It is useful when parsing decimals.
+// We don't want to consume a '.' unless we're sure it is followed by a digit.
+func (s *scanner) peekNext() rune {
+	if s.current+1 >= len(s.source) {
+		return '\000'
+	}
+	return []rune(s.source)[s.current+1]
+}
+
+// isAtEnd checks whether we have consumed all characters in `source`.
+func (s *scanner) isAtEnd() bool {
 	return s.current >= len(s.source)
 }
 
 // advance consumes and returns the next character.
-func (s scanner) advance() rune {
+func (s *scanner) advance() rune {
 	// TODO: This advances by one rune?
 	c := []rune(s.source)[s.current]
 	s.current++
 	return c
 }
 
-func (s scanner) addToken(t tokenType) {
+func (s *scanner) addToken(t tokenType) {
 	s.addTokenWithLiteral(t, nil)
 }
 
-func (s scanner) addTokenWithLiteral(t tokenType, literal interface{}) {
-	text := []rune(s.source)[s.start]
+func (s *scanner) addTokenWithLiteral(t tokenType, literal interface{}) {
+	text := []rune(s.source)[s.start:s.current]
 	s.tokens = append(s.tokens, token{
 		tokenType: t,
 		lexeme:    string(text),
 		literal:   literal,
 		line:      s.line,
 	})
+}
+
+func isDigit(c rune) bool {
+	return c >= '0' && c <= '9'
+}
+
+func isAlpha(c rune) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_'
+}
+
+func isAlphaNumeric(c rune) bool {
+	return isDigit(c) || isAlpha(c)
 }

@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strings"
 )
 
 const (
@@ -54,10 +53,11 @@ func runPrompt() {
 }
 
 func run(source string) {
-	tokens := strings.Fields(source)
+	s := newScanner(source)
+	tokens := s.scanTokens()
 
 	for _, token := range tokens {
-		println(token)
+		println(token.String())
 	}
 }
 
