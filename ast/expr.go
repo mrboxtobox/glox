@@ -1,22 +1,47 @@
 package main
 
-import "fmt"
-
-interface expr {}
-
-type Binary    struct {
-	left Expr
-	operator tokenType
-	right Expr
+type Visitor interface {
+	visitBinaryExpr(expr Binary) any
+	visitGroupingExpr(expr Grouping) any
+	visitLiteralExpr(expr Literal) any
+	visitUnaryExpr(expr Unary) any
 }
-type Grouping  struct {
+
+type Expr interface {
+	accept(visitor Visitor) any
+}
+
+type Binary struct {
+	left     Expr
+	operator Token
+	right    Expr
+}
+
+func (expr Binary) accept(visitor Visitor) any {
+	return visitor.visitBinaryExpr(expr)
+}
+
+type Grouping struct {
 	expression Expr
 }
-type Literal   struct {
+
+func (expr Grouping) accept(visitor Visitor) any {
+	return visitor.visitGroupingExpr(expr)
+}
+
+type Literal struct {
 	value interface{}
 }
-type Unary     struct {
-	operator tokenType
-	right Expr
+
+func (expr Literal) accept(visitor Visitor) any {
+	return visitor.visitLiteralExpr(expr)
 }
+
+type Unary struct {
+	operator Token
+	right    Expr
+}
+
+func (expr Unary) accept(visitor Visitor) any {
+	return visitor.visitUnaryExpr(expr)
 }
