@@ -5,7 +5,7 @@ import (
 	"strconv"
 )
 
-var reservedWords = map[string]tokenType{
+var reservedWords = map[string]TokenType{
 	"and":    And,
 	"class":  Class,
 	"else":   Else,
@@ -24,8 +24,8 @@ var reservedWords = map[string]tokenType{
 	"while":  While,
 }
 
-func newScanner(source string) *scanner {
-	return &scanner{
+func newScanner(source string) *Scanner {
+	return &Scanner{
 		source:  source,
 		start:   0,
 		current: 0,
@@ -34,7 +34,7 @@ func newScanner(source string) *scanner {
 }
 
 // TODO: Need to makes sure the source text is an ASCII character.
-type scanner struct {
+type Scanner struct {
 	// Raw source code.
 	source string
 	// First character in lexeme being scanned.
@@ -43,25 +43,25 @@ type scanner struct {
 	current int
 	// What source line `current` is on. For producing tokens that know their location.
 	line   int
-	tokens []token
+	tokens []Token
 }
 
-func (s scanner) scanTokens() []token {
+func (s Scanner) scanTokens() []Token {
 	for !s.isAtEnd() {
 		s.start = s.current
 		s.scanToken()
 	}
 
-	s.tokens = append(s.tokens, token{
-		tokenType: EOF,
-		lexeme:    "",
-		literal:   nil,
-		line:      s.line,
+	s.tokens = append(s.tokens, Token{
+		TokenType: EOF,
+		Lexeme:    "",
+		Literal:   nil,
+		Line:      s.line,
 	})
 	return s.tokens
 }
 
-func (s *scanner) scanToken() {
+func (s *Scanner) scanToken() {
 	c := s.advance()
 	// Handle the single characters first.
 	switch c {
@@ -141,7 +141,7 @@ func (s *scanner) scanToken() {
 	}
 }
 
-func (s *scanner) scanString() {
+func (s *Scanner) scanString() {
 	for s.peek() != '"' && !s.isAtEnd() {
 		// glox supports strings.
 		if s.peek() == '\n' {
@@ -162,7 +162,7 @@ func (s *scanner) scanString() {
 	s.addTokenWithLiteral(String, value)
 }
 
-func (s *scanner) scanNumber() {
+func (s *Scanner) scanNumber() {
 	// Consume the rest of the digits.
 	for isDigit(s.peek()) {
 		s.advance()
@@ -184,21 +184,21 @@ func (s *scanner) scanNumber() {
 	s.addTokenWithLiteral(Number, n)
 }
 
-func (s *scanner) scanIdentifier() {
+func (s *Scanner) scanIdentifier() {
 	for isAlphaNumeric(s.peek()) {
 		s.advance()
 	}
 
 	// TODO: Make substring conversation its own function.
 	text := string([]rune(s.source)[s.start:s.current])
-	tokenType, ok := reservedWords[text]
+	TokenType, ok := reservedWords[text]
 	if !ok {
-		tokenType = Identifier
+		TokenType = Identifier
 	}
-	s.addToken(tokenType)
+	s.addToken(TokenType)
 }
 
-func (s *scanner) match(expected rune) bool {
+func (s *Scanner) match(expected rune) bool {
 	if s.isAtEnd() {
 		return false
 	}
@@ -211,7 +211,7 @@ func (s *scanner) match(expected rune) bool {
 	return true
 }
 
-func (s *scanner) peek() rune {
+func (s *Scanner) peek() rune {
 	if s.isAtEnd() {
 		return '\000'
 	}
@@ -220,7 +220,7 @@ func (s *scanner) peek() rune {
 
 // peekNext does lookahead by 2 characters. It is useful when parsing decimals.
 // We don't want to consume a '.' unless we're sure it is followed by a digit.
-func (s *scanner) peekNext() rune {
+func (s *Scanner) peekNext() rune {
 	if s.current+1 >= len(s.source) {
 		return '\000'
 	}
@@ -228,29 +228,29 @@ func (s *scanner) peekNext() rune {
 }
 
 // isAtEnd checks whether we have consumed all characters in `source`.
-func (s *scanner) isAtEnd() bool {
+func (s *Scanner) isAtEnd() bool {
 	return s.current >= len(s.source)
 }
 
 // advance consumes and returns the next character.
-func (s *scanner) advance() rune {
+func (s *Scanner) advance() rune {
 	// TODO: This advances by one rune?
 	c := []rune(s.source)[s.current]
 	s.current++
 	return c
 }
 
-func (s *scanner) addToken(t tokenType) {
+func (s *Scanner) addToken(t TokenType) {
 	s.addTokenWithLiteral(t, nil)
 }
 
-func (s *scanner) addTokenWithLiteral(t tokenType, literal interface{}) {
+func (s *Scanner) addTokenWithLiteral(t TokenType, literal interface{}) {
 	text := []rune(s.source)[s.start:s.current]
-	s.tokens = append(s.tokens, token{
-		tokenType: t,
-		lexeme:    string(text),
-		literal:   literal,
-		line:      s.line,
+	s.tokens = append(s.tokens, Token{
+		TokenType: t,
+		Lexeme:    string(text),
+		Literal:   literal,
+		Line:      s.line,
 	})
 }
 

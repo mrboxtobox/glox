@@ -1,8 +1,8 @@
 package main
 
-type tokenType int
+type TokenType int
 
-func (t tokenType) String() string {
+func (t TokenType) String() string {
 	switch t {
 	case LeftParen:
 		return "LeftParen"
@@ -90,7 +90,7 @@ func (t tokenType) String() string {
 
 const (
 	// Single-character tokens.
-	LeftParen tokenType = iota
+	LeftParen TokenType = iota
 	RightParen
 	LeftBrace
 	RightBrace

@@ -2,13 +2,13 @@ package main
 
 import "fmt"
 
-type token struct {
-	tokenType tokenType
-	lexeme    string
-	literal   interface{}
-	line      int
+type Token struct {
+	TokenType TokenType
+	Lexeme    string
+	Literal   interface{}
+	Line      int
 }
 
-func (t token) String() string {
-	return fmt.Sprintf("Token{type=%s, lexeme=%s, literal=%v}", t.tokenType, t.lexeme, t.literal)
+func (t Token) String() string {
+	return fmt.Sprintf("Token{type=%s, lexeme=%s, literal=%v}", t.TokenType, t.Lexeme, t.Literal)
 }
