@@ -24,7 +24,7 @@ var reservedWords = map[string]TokenType{
 	"while":  While,
 }
 
-func newScanner(source string) *Scanner {
+func NewScanner(source string) *Scanner {
 	return &Scanner{
 		source:  source,
 		start:   0,
@@ -46,7 +46,7 @@ type Scanner struct {
 	tokens []Token
 }
 
-func (s Scanner) scanTokens() []Token {
+func (s Scanner) ScanTokens() []Token {
 	for !s.isAtEnd() {
 		s.start = s.current
 		s.scanToken()
@@ -203,11 +203,11 @@ func (s *Scanner) match(expected rune) bool {
 		return false
 	}
 	// TODO: How efficient is this []rune cast?
-	current := []rune(s.source)[s.current]
-	if current != expected {
+	currRune := []rune(s.source)[s.current]
+	if currRune != expected {
 		return false
 	}
-	current++
+	s.current++
 	return true
 }
 

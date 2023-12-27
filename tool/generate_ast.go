@@ -8,6 +8,7 @@ import (
 	"strings"
 )
 
+// TODO: Check error status in WriteString.
 // defineType generates the AST for a single type.
 func defineType(file *os.File, baseName string, structName string, fields string) {
 	file.WriteString("type " + structName + " struct {\n")

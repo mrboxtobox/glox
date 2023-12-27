@@ -53,12 +53,15 @@ func runPrompt() {
 }
 
 func run(source string) {
-	s := newScanner(source)
-	tokens := s.scanTokens()
-
-	for _, token := range tokens {
-		println(token.String())
+	s := NewScanner(source)
+	tokens := s.ScanTokens()
+	parser := NewParser(tokens)
+	expr := parser.Parse()
+	if hadError {
+		return
 	}
+	printer := AstPrinter{}
+	fmt.Printf("%v\n", printer.print(expr))
 }
 
 // Minimal error reporting.
@@ -69,6 +72,15 @@ func printErr(line int, message string) {
 // TODO: Extend this to show users the offending line and point to the column.
 func report(line int, where, message string) {
 	println(fmt.Sprintf("[%d] Error %s: %s", line, where, message))
+	hadError = true
+}
+
+func PrintDetailedError(token Token, message string) {
+	if token.TokenType == EOF {
+		report(token.Line, "at end", message)
+	} else {
+		report(token.Line, "at '"+token.Lexeme+"'", message)
+	}
 }
 
 func main() {
