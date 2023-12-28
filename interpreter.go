@@ -6,27 +6,58 @@ import (
 	"strings"
 )
 
-type Interpreter struct{}
+type Interpreter struct {
+	environment Environment
+}
 
-func (p Interpreter) Interpret(statements []Stmt) {
+func NewInterpreter() *Interpreter {
+	return &Interpreter{
+		environment: NewEnvironment(),
+	}
+}
+
+func (i Interpreter) Interpret(statements []Stmt) {
 	for _, statement := range statements {
-		if _, err := p.execute(statement); err != nil {
+		if _, err := i.execute(statement); err != nil {
 			PrintRuntimeError(err.(RuntimeError))
 			break
 		}
 	}
 }
 
-func (p Interpreter) execute(statement Stmt) (any, error) {
-	return statement.AcceptStmt(p)
+func (i Interpreter) execute(statement Stmt) (any, error) {
+	return statement.AcceptStmt(i)
 }
 
-func (p Interpreter) VisitLiteralExpr(expr LiteralExpr) (any, error) {
+func (i Interpreter) executeBlock(statements []Stmt, environment Environment) error {
+	// TODO: Figure out how this assignment will work.
+	previous := i.environment
+	// Use defer to ensure the environment is restored even in case of an early return.
+	defer func() {
+		i.environment = previous
+	}()
+	i.environment = environment
+	for _, statement := range statements {
+		if _, err := i.execute(statement); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (i Interpreter) VisitBlockStmt(stmt BlockStmt) (any, error) {
+	if err := i.executeBlock(stmt.Statements, NewEnvironmentFromEnclosing(&i.environment)); err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+func (i Interpreter) VisitLiteralExpr(expr LiteralExpr) (any, error) {
 	return expr.Value, nil
 }
 
-func (p Interpreter) VisitUnaryExpr(expr UnaryExpr) (any, error) {
-	right, err := p.evaluate(expr.Right)
+func (i Interpreter) VisitUnaryExpr(expr UnaryExpr) (any, error) {
+	right, err := i.evaluate(expr.Right)
 	if err != nil {
 		return nil, err
 	}
@@ -43,12 +74,12 @@ func (p Interpreter) VisitUnaryExpr(expr UnaryExpr) (any, error) {
 	return nil, nil
 }
 
-func (p Interpreter) VisitBinaryExpr(expr BinaryExpr) (any, error) {
-	left, err := p.evaluate(expr.Left)
+func (i Interpreter) VisitBinaryExpr(expr BinaryExpr) (any, error) {
+	left, err := i.evaluate(expr.Left)
 	if err != nil {
 		return nil, err
 	}
-	right, err := p.evaluate(expr.Right)
+	right, err := i.evaluate(expr.Right)
 	if err != nil {
 		return nil, err
 	}
@@ -110,29 +141,58 @@ func (p Interpreter) VisitBinaryExpr(expr BinaryExpr) (any, error) {
 	return nil, nil
 }
 
-func (p Interpreter) VisitGroupingExpr(expr GroupingExpr) (any, error) {
-	return p.evaluate(expr.Expression)
+func (i Interpreter) VisitGroupingExpr(expr GroupingExpr) (any, error) {
+	return i.evaluate(expr.Expression)
 }
 
-func (p Interpreter) evaluate(expr Expr) (any, error) {
-	return expr.AcceptExpr(p)
+func (i Interpreter) VisitVariableExpr(expr VariableExpr) (any, error) {
+	return i.environment.Get(expr.Name)
 }
 
-func (p Interpreter) VisitExpressionStmt(stmt ExpressionStmt) (any, error) {
+func (i Interpreter) evaluate(expr Expr) (any, error) {
+	return expr.AcceptExpr(i)
+}
+
+func (i Interpreter) VisitExpressionStmt(stmt ExpressionStmt) (any, error) {
 	// There's no result from a statement. So, just evaluate and ignore the result.
-	if _, err := p.evaluate(stmt.Expression); err != nil {
+	if _, err := i.evaluate(stmt.Expression); err != nil {
 		return nil, err
 	}
 	return nil, nil
 }
 
-func (p Interpreter) VisitPrintStmt(stmt PrintStmt) (any, error) {
-	value, err := p.evaluate(stmt.Expression)
+func (i Interpreter) VisitPrintStmt(stmt PrintStmt) (any, error) {
+	value, err := i.evaluate(stmt.Expression)
 	if err != nil {
 		return nil, err
 	}
 	println(stringify(value))
 	return nil, nil
+}
+
+func (i Interpreter) VisitVarStmt(stmt VarStmt) (any, error) {
+	var value any
+	if stmt.Initializer != nil {
+		var err error
+		value, err = i.evaluate(stmt.Initializer)
+		if err != nil {
+			return nil, err
+		}
+	}
+	i.environment.Define(stmt.Name.Lexeme, value)
+	return nil, nil
+}
+
+func (i Interpreter) VisitAssignExpr(expr AssignExpr) (any, error) {
+	value, err := i.evaluate(expr.Value)
+	if err != nil {
+		return nil, err
+	}
+	err = i.environment.Assign(expr.Name, value)
+	if err != nil {
+		return nil, err
+	}
+	return value, nil
 }
 
 func isTruthy(value any) bool {

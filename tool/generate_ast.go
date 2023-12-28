@@ -100,15 +100,19 @@ func main() {
 	// Define the AST.
 	dir := os.Args[1]
 	defineAst(dir, "Expr", []string{
+		"Assign   : Name Token, Value Expr",
 		"Binary   : Left Expr, Operator Token, Right Expr",
 		"Grouping : Expression Expr",
 		"Literal  : Value interface{}",
 		"Unary    : Operator Token, Right Expr",
+		"Variable : Name Token",
 	})
 
 	defineAst(dir, "Stmt", []string{
+		"Block      : Statements []Stmt",
 		"Expression : Expression Expr",
 		"Print      : Expression Expr",
+		"Var        : Name Token, Initializer Expr",
 	})
 	formatFiles()
 }

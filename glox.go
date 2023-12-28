@@ -17,7 +17,7 @@ const (
 	SysexitsUsageSoftware = 70
 )
 
-var intepreter = Interpreter{}
+var intepreter = NewInterpreter()
 
 // Whether we've encountered an error.
 var hadError bool

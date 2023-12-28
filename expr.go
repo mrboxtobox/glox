@@ -1,14 +1,25 @@
 package main
 
 type ExprVisitor interface {
+	VisitAssignExpr(expr AssignExpr) (any, error)
 	VisitBinaryExpr(expr BinaryExpr) (any, error)
 	VisitGroupingExpr(expr GroupingExpr) (any, error)
 	VisitLiteralExpr(expr LiteralExpr) (any, error)
 	VisitUnaryExpr(expr UnaryExpr) (any, error)
+	VisitVariableExpr(expr VariableExpr) (any, error)
 }
 
 type Expr interface {
 	AcceptExpr(visitor ExprVisitor) (any, error)
+}
+
+type AssignExpr struct {
+	Name  Token
+	Value Expr
+}
+
+func (expr AssignExpr) AcceptExpr(visitor ExprVisitor) (any, error) {
+	return visitor.VisitAssignExpr(expr)
 }
 
 type BinaryExpr struct {
@@ -44,4 +55,12 @@ type UnaryExpr struct {
 
 func (expr UnaryExpr) AcceptExpr(visitor ExprVisitor) (any, error) {
 	return visitor.VisitUnaryExpr(expr)
+}
+
+type VariableExpr struct {
+	Name Token
+}
+
+func (expr VariableExpr) AcceptExpr(visitor ExprVisitor) (any, error) {
+	return visitor.VisitVariableExpr(expr)
 }

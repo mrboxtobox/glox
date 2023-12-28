@@ -27,11 +27,11 @@ func NewParser(tokens []Token) *Parser {
 func (p *Parser) Parse() ([]Stmt, error) {
 	var statements []Stmt
 	for !p.isAtEnd() {
-		stmt, err := p.statement()
+		declaration, err := p.declaration()
 		if err != nil {
 			return nil, err
 		}
-		statements = append(statements, stmt)
+		statements = append(statements, declaration)
 	}
 	return statements, nil
 }
@@ -40,7 +40,75 @@ func (p *Parser) statement() (Stmt, error) {
 	if p.match([]TokenType{Print}) {
 		return p.printStatement()
 	}
+	if p.match([]TokenType{LeftBrace}) {
+		statements, err := p.block()
+		if err != nil {
+			return nil, err
+		}
+		return BlockStmt{statements}, nil
+	}
 	return p.expressionStatement()
+}
+
+func (p *Parser) block() ([]Stmt, error) {
+	var statements []Stmt
+	for !p.check(RightBrace) && !p.isAtEnd() {
+		declaration, err := p.declaration()
+		if err != nil {
+			return nil, err
+		}
+		statements = append(statements, declaration)
+	}
+	_, err := p.consume(RightBrace, "Expect '}' after block.")
+	if err != nil {
+		return nil, err
+	}
+	return statements, nil
+}
+
+func (p *Parser) declaration() (Stmt, error) {
+	if p.match([]TokenType{Var}) {
+		declaration, err := p.varDeclaration()
+		if err == nil {
+			return declaration, nil
+		}
+		// TODO: Handle non ParseErrors.
+		if _, ok := err.(ParseError); ok {
+			p.synchronize()
+			return nil, err
+		} else {
+			panic(err)
+		}
+	}
+
+	statement, err := p.statement()
+	if err == nil {
+		return statement, err
+	}
+	if _, ok := err.(ParseError); ok {
+		p.synchronize()
+		return nil, err
+	} else {
+		panic(err)
+	}
+}
+
+func (p *Parser) varDeclaration() (Stmt, error) {
+	name, err := p.consume(Identifier, "Expect variable name.")
+	if err != nil {
+		return nil, err
+	}
+	var initializer Expr
+	if p.match([]TokenType{Equal}) {
+		initializer, err = p.expression()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if _, err = p.consume(Semicolon, "Expect ';' after variable declaration."); err != nil {
+		return nil, err
+	}
+	return VarStmt{name, initializer}, nil
 }
 
 func (p *Parser) printStatement() (Stmt, error) {
@@ -48,7 +116,9 @@ func (p *Parser) printStatement() (Stmt, error) {
 	if err != nil {
 		return nil, err
 	}
-	p.consume(Semicolon, "Expect ';' after value.")
+	if _, err = p.consume(Semicolon, "Expect ';' after value."); err != nil {
+		return nil, err
+	}
 	return PrintStmt{value}, nil
 }
 
@@ -57,12 +127,40 @@ func (p *Parser) expressionStatement() (Stmt, error) {
 	if err != nil {
 		return nil, err
 	}
-	p.consume(Semicolon, "Expect ';' after expression.")
+
+	if _, err = p.consume(Semicolon, "Expect ';' after expression."); err != nil {
+		return nil, err
+	}
 	return ExpressionStmt{expr}, nil
 }
 
+// Assignment is right-associative.
+// We can do this since every valid assignment target is a valid expression.
+func (p *Parser) assignment() (Expr, error) {
+	expr, err := p.equality()
+	if err != nil {
+		return nil, err
+	}
+
+	if p.match([]TokenType{Equal}) {
+		equals := p.previous()
+		value, err := p.assignment()
+		if err != nil {
+			return nil, err
+		}
+
+		if ve, ok := expr.(VariableExpr); ok {
+			name := ve.Name
+			return AssignExpr{name, value}, nil
+		}
+		// We don't throw an error because the parser is not in a bad state.
+		PrintDetailedError(equals, "Invalid assignment target.")
+	}
+	return expr, nil
+}
+
 func (p *Parser) expression() (Expr, error) {
-	return p.equality()
+	return p.assignment()
 }
 
 func (p *Parser) equality() (Expr, error) {
@@ -153,6 +251,9 @@ func (p *Parser) primary() (Expr, error) {
 	}
 	if p.match([]TokenType{Number, String}) {
 		return LiteralExpr{p.previous().Literal}, nil
+	}
+	if p.match([]TokenType{Identifier}) {
+		return VariableExpr{p.previous()}, nil
 	}
 	if p.match([]TokenType{LeftParen}) {
 		expr, err := p.expression()
