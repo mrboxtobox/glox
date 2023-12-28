@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 )
 
@@ -17,8 +18,13 @@ const (
 	SysexitsUsageSoftware = 70
 )
 
+var intepreter = Interpreter{}
+
 // Whether we've encountered an error.
 var hadError bool
+
+// Whether we've encountered a runtime error.
+var hadRuntimeError bool
 
 func runFile(path string) {
 	bytes, err := os.ReadFile(path)
@@ -30,6 +36,9 @@ func runFile(path string) {
 	if hadError {
 		// Indicate an error in the exit code.
 		os.Exit(SysexitsDataError)
+	}
+	if hadRuntimeError {
+		os.Exit(SysexitsUsageSoftware)
 	}
 }
 
@@ -61,7 +70,12 @@ func run(source string) {
 		return
 	}
 	printer := AstPrinter{}
-	fmt.Printf("%v\n", printer.print(expr))
+	printed, err := printer.print(expr)
+	if err != nil {
+		log.Fatal("AstPrinter failed to print: ", err)
+	}
+	fmt.Printf("%v\n", printed)
+	intepreter.Interpret(expr)
 }
 
 // Minimal error reporting.
@@ -81,6 +95,11 @@ func PrintDetailedError(token Token, message string) {
 	} else {
 		report(token.Line, "at '"+token.Lexeme+"'", message)
 	}
+}
+
+func PrintRuntimeError(err RuntimeError) {
+	println(fmt.Sprintf("%s\n[line %d]", err.Message, err.Token.Line))
+	hadRuntimeError = true
 }
 
 func main() {

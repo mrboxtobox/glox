@@ -136,7 +136,7 @@ func (p *Parser) primary() (Expr, error) {
 		if err != nil {
 			return nil, err
 		}
-		if _, err := p.consume(RightParen, "Expect ')' after expression."); err != nil {
+		if _, err := p.consume(RightParen, "Expect ')' after expression but got."); err != nil {
 			return nil, err
 		}
 		return Grouping{expr}, nil
@@ -144,7 +144,7 @@ func (p *Parser) primary() (Expr, error) {
 
 	// NOTE: This deviates from Ch. 6 error reporting since Go does not support
 	// throwing errors.
-	PrintDetailedError(p.peek(), "Expect expression")
+	PrintDetailedError(p.peek(), fmt.Sprintf("Expect expression but got '%v'.", p.peek()))
 	return nil, ParseError{}
 }
 
