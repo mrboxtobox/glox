@@ -8,20 +8,24 @@ import (
 
 type Interpreter struct{}
 
-func (p Interpreter) Interpret(expr Expr) {
-	value, err := p.evaluate(expr)
-	if err != nil {
-		// TODO: There should be a better to way to do the cast.
-		PrintRuntimeError(err.(RuntimeError))
+func (p Interpreter) Interpret(statements []Stmt) {
+	for _, statement := range statements {
+		if _, err := p.execute(statement); err != nil {
+			PrintRuntimeError(err.(RuntimeError))
+			break
+		}
 	}
-	fmt.Printf("%v\n", stringify(value))
 }
 
-func (p Interpreter) VisitLiteralExpr(expr Literal) (any, error) {
+func (p Interpreter) execute(statement Stmt) (any, error) {
+	return statement.AcceptStmt(p)
+}
+
+func (p Interpreter) VisitLiteralExpr(expr LiteralExpr) (any, error) {
 	return expr.Value, nil
 }
 
-func (p Interpreter) VisitUnaryExpr(expr Unary) (any, error) {
+func (p Interpreter) VisitUnaryExpr(expr UnaryExpr) (any, error) {
 	right, err := p.evaluate(expr.Right)
 	if err != nil {
 		return nil, err
@@ -39,7 +43,7 @@ func (p Interpreter) VisitUnaryExpr(expr Unary) (any, error) {
 	return nil, nil
 }
 
-func (p Interpreter) VisitBinaryExpr(expr Binary) (any, error) {
+func (p Interpreter) VisitBinaryExpr(expr BinaryExpr) (any, error) {
 	left, err := p.evaluate(expr.Left)
 	if err != nil {
 		return nil, err
@@ -106,12 +110,29 @@ func (p Interpreter) VisitBinaryExpr(expr Binary) (any, error) {
 	return nil, nil
 }
 
-func (p Interpreter) VisitGroupingExpr(expr Grouping) (any, error) {
+func (p Interpreter) VisitGroupingExpr(expr GroupingExpr) (any, error) {
 	return p.evaluate(expr.Expression)
 }
 
 func (p Interpreter) evaluate(expr Expr) (any, error) {
-	return expr.Accept(p)
+	return expr.AcceptExpr(p)
+}
+
+func (p Interpreter) VisitExpressionStmt(stmt ExpressionStmt) (any, error) {
+	// There's no result from a statement. So, just evaluate and ignore the result.
+	if _, err := p.evaluate(stmt.Expression); err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+func (p Interpreter) VisitPrintStmt(stmt PrintStmt) (any, error) {
+	value, err := p.evaluate(stmt.Expression)
+	if err != nil {
+		return nil, err
+	}
+	println(stringify(value))
+	return nil, nil
 }
 
 func isTruthy(value any) bool {
@@ -138,7 +159,7 @@ func checkNumberOperands(operator Token, left any, right any) error {
 	if leftKind == reflect.Float64 && rightKind == reflect.Float64 {
 		return nil
 	}
-	return RuntimeError{operator, fmt.Sprintf("Operands (%q, %q) must be numbers but are (%T, %T)", left, right, left, right)}
+	return RuntimeError{operator, fmt.Sprintf("Operands (%v, %v) must be numbers but are (%T, %T)", left, right, left, right)}
 }
 
 func stringify(object any) string {
@@ -152,5 +173,5 @@ func stringify(object any) string {
 		text, _ = strings.CutSuffix(text, ".000000")
 		return text
 	}
-	return fmt.Sprintf("%s", object)
+	return fmt.Sprintf("%v", object)
 }

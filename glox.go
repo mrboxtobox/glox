@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 )
 
@@ -65,17 +64,15 @@ func run(source string) {
 	s := NewScanner(source)
 	tokens := s.ScanTokens()
 	parser := NewParser(tokens)
-	expr := parser.Parse()
+	statements, err := parser.Parse()
+	// TODO: Find the best way to handle errors discovered.
+	if err != nil {
+		hadError = true
+	}
 	if hadError {
 		return
 	}
-	printer := AstPrinter{}
-	printed, err := printer.print(expr)
-	if err != nil {
-		log.Fatal("AstPrinter failed to print: ", err)
-	}
-	fmt.Printf("%v\n", printed)
-	intepreter.Interpret(expr)
+	intepreter.Interpret(statements)
 }
 
 // Minimal error reporting.

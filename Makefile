@@ -7,10 +7,10 @@ all:
 	rm -f ./generate_ast
 
 	# Build the AST generator...
-	# go build -o ./generate_ast tool/generate_ast.go
+	go build -o ./genast tool/*.go
 
 	# Generate expr.go...
-	# ./generate_ast .
+	./genast .
 
 	# Build interpreter...
 	go build -o ./glox *.go
@@ -28,10 +28,10 @@ build_and_run: build run
 
 genast:
 	# rm generate_ast
-	go build -o ./generate_ast tool/generate_ast.go
-	./generate_ast .
+	go build -o ./genast tool/generate_ast.go
+	./genast .
 
 clean:
 	go clean
-	rm ./glox
-	rm ./generate_ast
+	rm -f ./glox
+	rm -f ./genast

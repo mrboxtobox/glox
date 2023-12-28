@@ -1,4 +1,4 @@
-package tool
+package main
 
 import (
 	"fmt"
@@ -10,16 +10,17 @@ import (
 
 // TODO: Check error status in WriteString.
 // defineType generates the AST for a single type.
+// Wrap prefix with basename since we can't have nested classes?
 func defineType(file *os.File, baseName string, structName string, fields string) {
-	file.WriteString("type " + structName + " struct {\n")
+	file.WriteString("type " + structName + baseName + " struct {\n")
 	// Fields.
 	for _, field := range strings.Split(fields, ",") {
 		file.WriteString(" " + strings.TrimSpace(field))
 		file.WriteString("\n")
 	}
 	file.WriteString("}\n\n")
-	file.WriteString("\n  func " + "(expr " + structName + ")" + "accept(visitor Visitor) any{\n")
-	file.WriteString("  return visitor.visit" + structName + baseName + "(expr)\n")
+	file.WriteString("\n  func " + "(expr " + structName + baseName + ") Accept" + baseName + "(visitor " + baseName + "Visitor) (any, error) {\n")
+	file.WriteString("  return visitor.Visit" + structName + baseName + "(expr)\n")
 	file.WriteString("}\n")
 }
 
@@ -38,7 +39,7 @@ func defineAst(dir string, baseName string, types []string) {
 	defineVisitor(file, baseName, types)
 
 	file.WriteString("type " + baseName + " interface {\n")
-	file.WriteString("  accept(visitor Visitor) any")
+	file.WriteString("  Accept" + baseName + "(visitor " + baseName + "Visitor) (any, error)")
 	file.WriteString("}\n\n")
 
 	// Add the AST Classes.
@@ -48,18 +49,16 @@ func defineAst(dir string, baseName string, types []string) {
 		fields := strings.TrimSpace(parts[1])
 		defineType(file, baseName, structName, fields)
 	}
-	// The accept() method.
-	// file.WriteString("\n  func " + "(" + baseName + ")" + "accept(visitor Visitor) any")
 }
 
-// TODO: Define this.
+// We create separate visitors to avoid conflicts.
 func defineVisitor(file *os.File, baseName string, types []string) {
-	file.WriteString("type Visitor interface {\n")
+	file.WriteString("type " + baseName + "Visitor interface {\n")
 	for _, t := range types {
 		typeName := strings.TrimSpace(strings.Split(t, ":")[0])
-		funcName := "  visit" + typeName + baseName
-		param := strings.ToLower(baseName) + " " + typeName
-		file.WriteString(funcName + "(" + param + ") any\n")
+		funcName := "  Visit" + typeName + baseName
+		param := strings.ToLower(baseName) + " " + typeName + baseName
+		file.WriteString(funcName + "(" + param + ") (any, error)\n")
 	}
 	file.WriteString("}\n\n")
 }
@@ -101,10 +100,15 @@ func main() {
 	// Define the AST.
 	dir := os.Args[1]
 	defineAst(dir, "Expr", []string{
-		"Binary   : left Expr, operator Token, right Expr",
-		"Grouping : expression Expr",
-		"Literal  : value interface{}",
-		"Unary    : operator Token, right Expr",
+		"Binary   : Left Expr, Operator Token, Right Expr",
+		"Grouping : Expression Expr",
+		"Literal  : Value interface{}",
+		"Unary    : Operator Token, Right Expr",
+	})
+
+	defineAst(dir, "Stmt", []string{
+		"Expression : Expression Expr",
+		"Print      : Expression Expr",
 	})
 	formatFiles()
 }

@@ -24,18 +24,41 @@ func NewParser(tokens []Token) *Parser {
 	}
 }
 
-func (p *Parser) Parse() Expr {
+func (p *Parser) Parse() ([]Stmt, error) {
+	var statements []Stmt
+	for !p.isAtEnd() {
+		stmt, err := p.statement()
+		if err != nil {
+			return nil, err
+		}
+		statements = append(statements, stmt)
+	}
+	return statements, nil
+}
+
+func (p *Parser) statement() (Stmt, error) {
+	if p.match([]TokenType{Print}) {
+		return p.printStatement()
+	}
+	return p.expressionStatement()
+}
+
+func (p *Parser) printStatement() (Stmt, error) {
+	value, err := p.expression()
+	if err != nil {
+		return nil, err
+	}
+	p.consume(Semicolon, "Expect ';' after value.")
+	return PrintStmt{value}, nil
+}
+
+func (p *Parser) expressionStatement() (Stmt, error) {
 	expr, err := p.expression()
-	if err == nil {
-		return expr
+	if err != nil {
+		return nil, err
 	}
-	// Use type assertion to determine error type.
-	// See https://go.dev/tour/methods/15.
-	if _, ok := err.(ParseError); ok {
-		return nil
-	}
-	// TODO: We should never end in this state so, panic.
-	panic(err)
+	p.consume(Semicolon, "Expect ';' after expression.")
+	return ExpressionStmt{expr}, nil
 }
 
 func (p *Parser) expression() (Expr, error) {
@@ -53,7 +76,7 @@ func (p *Parser) equality() (Expr, error) {
 		if err != nil {
 			return nil, err
 		}
-		expr = Binary{expr, operator, right}
+		expr = BinaryExpr{expr, operator, right}
 	}
 	return expr, nil
 }
@@ -69,7 +92,7 @@ func (p *Parser) comparison() (Expr, error) {
 		if err != nil {
 			return nil, err
 		}
-		expr = Binary{expr, operator, right}
+		expr = BinaryExpr{expr, operator, right}
 	}
 	return expr, nil
 }
@@ -85,7 +108,7 @@ func (p *Parser) term() (Expr, error) {
 		if err != nil {
 			return nil, err
 		}
-		expr = Binary{expr, operator, right}
+		expr = BinaryExpr{expr, operator, right}
 	}
 	return expr, nil
 }
@@ -101,7 +124,7 @@ func (p *Parser) factor() (Expr, error) {
 		if err != nil {
 			return nil, err
 		}
-		expr = Binary{expr, operator, right}
+		expr = BinaryExpr{expr, operator, right}
 	}
 	return expr, nil
 }
@@ -113,23 +136,23 @@ func (p *Parser) unary() (Expr, error) {
 		if err != nil {
 			return nil, err
 		}
-		return Unary{operator, right}, nil
+		return UnaryExpr{operator, right}, nil
 	}
 	return p.primary()
 }
 
 func (p *Parser) primary() (Expr, error) {
 	if p.match([]TokenType{False}) {
-		return Literal{false}, nil
+		return LiteralExpr{false}, nil
 	}
 	if p.match([]TokenType{True}) {
-		return Literal{true}, nil
+		return LiteralExpr{true}, nil
 	}
 	if p.match([]TokenType{Nil}) {
-		return Literal{nil}, nil
+		return LiteralExpr{nil}, nil
 	}
 	if p.match([]TokenType{Number, String}) {
-		return Literal{p.previous().Literal}, nil
+		return LiteralExpr{p.previous().Literal}, nil
 	}
 	if p.match([]TokenType{LeftParen}) {
 		expr, err := p.expression()
@@ -139,7 +162,7 @@ func (p *Parser) primary() (Expr, error) {
 		if _, err := p.consume(RightParen, "Expect ')' after expression but got."); err != nil {
 			return nil, err
 		}
-		return Grouping{expr}, nil
+		return GroupingExpr{expr}, nil
 	}
 
 	// NOTE: This deviates from Ch. 6 error reporting since Go does not support

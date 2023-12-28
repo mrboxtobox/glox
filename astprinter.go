@@ -8,25 +8,25 @@ import (
 type AstPrinter struct{}
 
 func (p AstPrinter) print(expr Expr) (any, error) {
-	return expr.Accept(p)
+	return expr.AcceptExpr(p)
 }
 
-func (p AstPrinter) VisitBinaryExpr(expr Binary) (any, error) {
+func (p AstPrinter) VisitBinaryExpr(expr BinaryExpr) (any, error) {
 	return p.Parenthesize(expr.Operator.Lexeme, []Expr{expr.Left, expr.Right})
 }
 
-func (p AstPrinter) VisitGroupingExpr(expr Grouping) (any, error) {
+func (p AstPrinter) VisitGroupingExpr(expr GroupingExpr) (any, error) {
 	return p.Parenthesize("group", []Expr{expr.Expression})
 }
 
-func (p AstPrinter) VisitLiteralExpr(expr Literal) (any, error) {
+func (p AstPrinter) VisitLiteralExpr(expr LiteralExpr) (any, error) {
 	if expr.Value == nil {
 		return "nil", nil
 	}
 	return expr.Value, nil
 }
 
-func (p AstPrinter) VisitUnaryExpr(expr Unary) (any, error) {
+func (p AstPrinter) VisitUnaryExpr(expr UnaryExpr) (any, error) {
 	return p.Parenthesize(expr.Operator.Lexeme, []Expr{expr.Right})
 }
 
@@ -36,7 +36,7 @@ func (p AstPrinter) Parenthesize(name string, exprs []Expr) (any, error) {
 	sb.WriteString(name)
 	for _, expr := range exprs {
 		sb.WriteString(" ")
-		accepted, err := expr.Accept(p)
+		accepted, err := expr.AcceptExpr(p)
 		if err != nil {
 			return nil, err
 		}

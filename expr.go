@@ -1,47 +1,47 @@
 package main
 
-type Visitor interface {
-	VisitBinaryExpr(expr Binary) (any, error)
-	VisitGroupingExpr(expr Grouping) (any, error)
-	VisitLiteralExpr(expr Literal) (any, error)
-	VisitUnaryExpr(expr Unary) (any, error)
+type ExprVisitor interface {
+	VisitBinaryExpr(expr BinaryExpr) (any, error)
+	VisitGroupingExpr(expr GroupingExpr) (any, error)
+	VisitLiteralExpr(expr LiteralExpr) (any, error)
+	VisitUnaryExpr(expr UnaryExpr) (any, error)
 }
 
 type Expr interface {
-	Accept(visitor Visitor) (any, error)
+	AcceptExpr(visitor ExprVisitor) (any, error)
 }
 
-type Binary struct {
+type BinaryExpr struct {
 	Left     Expr
 	Operator Token
 	Right    Expr
 }
 
-func (expr Binary) Accept(visitor Visitor) (any, error) {
+func (expr BinaryExpr) AcceptExpr(visitor ExprVisitor) (any, error) {
 	return visitor.VisitBinaryExpr(expr)
 }
 
-type Grouping struct {
+type GroupingExpr struct {
 	Expression Expr
 }
 
-func (expr Grouping) Accept(visitor Visitor) (any, error) {
+func (expr GroupingExpr) AcceptExpr(visitor ExprVisitor) (any, error) {
 	return visitor.VisitGroupingExpr(expr)
 }
 
-type Literal struct {
+type LiteralExpr struct {
 	Value interface{}
 }
 
-func (expr Literal) Accept(visitor Visitor) (any, error) {
+func (expr LiteralExpr) AcceptExpr(visitor ExprVisitor) (any, error) {
 	return visitor.VisitLiteralExpr(expr)
 }
 
-type Unary struct {
+type UnaryExpr struct {
 	Operator Token
 	Right    Expr
 }
 
-func (expr Unary) Accept(visitor Visitor) (any, error) {
+func (expr UnaryExpr) AcceptExpr(visitor ExprVisitor) (any, error) {
 	return visitor.VisitUnaryExpr(expr)
 }
