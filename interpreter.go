@@ -56,6 +56,24 @@ func (i Interpreter) VisitLiteralExpr(expr LiteralExpr) (any, error) {
 	return expr.Value, nil
 }
 
+func (i Interpreter) VisitLogicalExpr(expr LogicalExpr) (any, error) {
+	left, err := i.evaluate(expr.Left)
+	if err != nil {
+		return nil, err
+	}
+
+	if expr.Operator.TokenType == Or {
+		if isTruthy(left) {
+			return left, nil
+		}
+	} else {
+		if !isTruthy(left) {
+			return left, nil
+		}
+	}
+	return i.evaluate(expr.Right)
+}
+
 func (i Interpreter) VisitUnaryExpr(expr UnaryExpr) (any, error) {
 	right, err := i.evaluate(expr.Right)
 	if err != nil {
@@ -161,6 +179,25 @@ func (i Interpreter) VisitExpressionStmt(stmt ExpressionStmt) (any, error) {
 	return nil, nil
 }
 
+func (i Interpreter) VisitIfStmt(stmt IfStmt) (any, error) {
+	value, err := i.evaluate(stmt.Condition)
+	if err != nil {
+		return nil, err
+	}
+	if isTruthy(value) {
+		_, err := i.execute(stmt.ElseBranch)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		_, err := i.execute(stmt.ThenBranch)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return nil, nil
+}
+
 func (i Interpreter) VisitPrintStmt(stmt PrintStmt) (any, error) {
 	value, err := i.evaluate(stmt.Expression)
 	if err != nil {
@@ -183,13 +220,29 @@ func (i Interpreter) VisitVarStmt(stmt VarStmt) (any, error) {
 	return nil, nil
 }
 
+// TODO: Figure out if we need to break early.
+func (i Interpreter) VisitWhileStmt(stmt WhileStmt) (any, error) {
+	for {
+		value, err := i.evaluate(stmt.Condition)
+
+		if err != nil {
+			return nil, err
+		}
+		if !isTruthy(value) {
+			return nil, nil
+		}
+		if _, err = i.execute(stmt.Body); err != nil {
+			return nil, err
+		}
+	}
+}
+
 func (i Interpreter) VisitAssignExpr(expr AssignExpr) (any, error) {
 	value, err := i.evaluate(expr.Value)
 	if err != nil {
 		return nil, err
 	}
-	err = i.environment.Assign(expr.Name, value)
-	if err != nil {
+	if err := i.environment.Assign(expr.Name, value); err != nil {
 		return nil, err
 	}
 	return value, nil

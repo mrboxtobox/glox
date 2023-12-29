@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"flag"
 	"fmt"
 	"os"
 )
@@ -28,15 +27,18 @@ var hadRuntimeError bool
 func runFile(path string) {
 	bytes, err := os.ReadFile(path)
 	if err != nil {
+		fmt.Printf("Error reading file %q: %v\n", path, err)
 		os.Exit(SysexitsUsageSoftware)
 	}
 	run(string(bytes))
 
 	if hadError {
+		println("Encountered error. Exiting.")
 		// Indicate an error in the exit code.
 		os.Exit(SysexitsDataError)
 	}
 	if hadRuntimeError {
+		println("Encountered runtime error. Exiting.")
 		os.Exit(SysexitsUsageSoftware)
 	}
 }
@@ -100,12 +102,12 @@ func PrintRuntimeError(err RuntimeError) {
 }
 
 func main() {
-	args := flag.Args()
-	if len(args) > 1 {
+	args := os.Args
+	if len(args) > 2 {
 		println("Usage: glox [script]")
 		os.Exit(SysexitsUsage)
-	} else if len(args) == 1 {
-		runFile(args[0])
+	} else if len(args) == 2 {
+		runFile(args[1])
 	} else {
 		runPrompt()
 	}

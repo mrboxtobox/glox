@@ -37,10 +37,19 @@ func (p *Parser) Parse() ([]Stmt, error) {
 }
 
 func (p *Parser) statement() (Stmt, error) {
-	if p.match([]TokenType{Print}) {
+	if p.matchSingle(For) {
+		return p.forStatement()
+	}
+	if p.matchSingle(If) {
+		return p.ifStatement()
+	}
+	if p.matchSingle(Print) {
 		return p.printStatement()
 	}
-	if p.match([]TokenType{LeftBrace}) {
+	if p.matchSingle(While) {
+		return p.whileStatement()
+	}
+	if p.matchSingle(LeftBrace) {
 		statements, err := p.block()
 		if err != nil {
 			return nil, err
@@ -48,6 +57,98 @@ func (p *Parser) statement() (Stmt, error) {
 		return BlockStmt{statements}, nil
 	}
 	return p.expressionStatement()
+}
+
+// Desugaring by transforming a for loop into a while loop.
+func (p *Parser) forStatement() (Stmt, error) {
+	if _, err := p.consume(LeftParen, "Expect '(' after 'for'."); err != nil {
+		return nil, err
+	}
+	var initializer Stmt
+	if p.matchSingle(Semicolon) {
+		// Pass.
+	} else if p.matchSingle(Var) {
+		var err error
+		initializer, err = p.varDeclaration()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		var err error
+		initializer, err = p.expressionStatement()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var condition Expr
+	// Check if a semicolon immediately follows the last clause.
+	if !p.check(Semicolon) {
+		var err error
+		condition, err = p.expression()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if _, err := p.consume(Semicolon, "Expect ';' after loop condition."); err != nil {
+		return nil, err
+	}
+
+	var increment Expr
+	if !p.check(RightParen) {
+		var err error
+		increment, err = p.expression()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if _, err := p.consume(RightParen, "Expect ')' after for clauses."); err != nil {
+		return nil, err
+	}
+	body, err := p.statement()
+	if err != nil {
+		return nil, err
+	}
+	// Build up the components of the for loop using while semantics.
+	// TODO: check if the nil value is Expr.
+	if increment != nil {
+		body = BlockStmt{[]Stmt{body, ExpressionStmt{increment}}}
+	}
+	if condition == nil {
+		condition = LiteralExpr{true}
+	}
+	body = WhileStmt{condition, body}
+	if initializer != nil {
+		body = BlockStmt{[]Stmt{initializer, body}}
+	}
+	return body, nil
+}
+
+func (p *Parser) ifStatement() (Stmt, error) {
+	_, err := p.consume(LeftParen, "Expect '(' after 'if'.")
+	if err != nil {
+		return nil, err
+	}
+	condition, err := p.expression()
+	if err != nil {
+		return nil, err
+	}
+	_, err = p.consume(RightParen, "Expect ')' after if condition.")
+	if err != nil {
+		return nil, err
+	}
+	thenBranch, err := p.statement()
+	if err != nil {
+		return nil, err
+	}
+	var elseBranch Stmt
+	if p.matchSingle(Else) {
+		elseBranch, err = p.statement()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return IfStmt{condition, thenBranch, elseBranch}, nil
 }
 
 func (p *Parser) block() ([]Stmt, error) {
@@ -67,7 +168,7 @@ func (p *Parser) block() ([]Stmt, error) {
 }
 
 func (p *Parser) declaration() (Stmt, error) {
-	if p.match([]TokenType{Var}) {
+	if p.matchSingle(Var) {
 		declaration, err := p.varDeclaration()
 		if err == nil {
 			return declaration, nil
@@ -99,7 +200,7 @@ func (p *Parser) varDeclaration() (Stmt, error) {
 		return nil, err
 	}
 	var initializer Expr
-	if p.match([]TokenType{Equal}) {
+	if p.matchSingle(Equal) {
 		initializer, err = p.expression()
 		if err != nil {
 			return nil, err
@@ -109,6 +210,24 @@ func (p *Parser) varDeclaration() (Stmt, error) {
 		return nil, err
 	}
 	return VarStmt{name, initializer}, nil
+}
+
+func (p *Parser) whileStatement() (Stmt, error) {
+	if _, err := p.consume(LeftParen, "Expect '(' after 'while'."); err != nil {
+		return nil, err
+	}
+	condition, err := p.expression()
+	if err != nil {
+		return nil, err
+	}
+	if _, err := p.consume(RightParen, "Expect ')' after condition."); err != nil {
+		return nil, err
+	}
+	body, err := p.statement()
+	if err != nil {
+		return nil, err
+	}
+	return WhileStmt{condition, body}, nil
 }
 
 func (p *Parser) printStatement() (Stmt, error) {
@@ -134,15 +253,19 @@ func (p *Parser) expressionStatement() (Stmt, error) {
 	return ExpressionStmt{expr}, nil
 }
 
+func (p *Parser) expression() (Expr, error) {
+	return p.assignment()
+}
+
 // Assignment is right-associative.
 // We can do this since every valid assignment target is a valid expression.
 func (p *Parser) assignment() (Expr, error) {
-	expr, err := p.equality()
+	expr, err := p.or()
 	if err != nil {
 		return nil, err
 	}
 
-	if p.match([]TokenType{Equal}) {
+	if p.matchSingle(Equal) {
 		equals := p.previous()
 		value, err := p.assignment()
 		if err != nil {
@@ -159,8 +282,36 @@ func (p *Parser) assignment() (Expr, error) {
 	return expr, nil
 }
 
-func (p *Parser) expression() (Expr, error) {
-	return p.assignment()
+func (p *Parser) or() (Expr, error) {
+	expr, err := p.and()
+	if err != nil {
+		return nil, err
+	}
+	for p.matchSingle(Or) {
+		operator := p.previous()
+		right, err := p.and()
+		if err != nil {
+			return nil, err
+		}
+		expr = LogicalExpr{expr, operator, right}
+	}
+	return expr, nil
+}
+
+func (p *Parser) and() (Expr, error) {
+	expr, err := p.equality()
+	if err != nil {
+		return nil, err
+	}
+	for p.matchSingle(And) {
+		operator := p.previous()
+		right, err := p.equality()
+		if err != nil {
+			return nil, err
+		}
+		expr = LogicalExpr{expr, operator, right}
+	}
+	return expr, nil
 }
 
 func (p *Parser) equality() (Expr, error) {
@@ -240,22 +391,22 @@ func (p *Parser) unary() (Expr, error) {
 }
 
 func (p *Parser) primary() (Expr, error) {
-	if p.match([]TokenType{False}) {
+	if p.matchSingle(False) {
 		return LiteralExpr{false}, nil
 	}
-	if p.match([]TokenType{True}) {
+	if p.matchSingle(True) {
 		return LiteralExpr{true}, nil
 	}
-	if p.match([]TokenType{Nil}) {
+	if p.matchSingle(Nil) {
 		return LiteralExpr{nil}, nil
 	}
 	if p.match([]TokenType{Number, String}) {
 		return LiteralExpr{p.previous().Literal}, nil
 	}
-	if p.match([]TokenType{Identifier}) {
+	if p.matchSingle(Identifier) {
 		return VariableExpr{p.previous()}, nil
 	}
-	if p.match([]TokenType{LeftParen}) {
+	if p.matchSingle(LeftParen) {
 		expr, err := p.expression()
 		if err != nil {
 			return nil, err
@@ -282,6 +433,15 @@ func (p *Parser) match(types []TokenType) bool {
 	return false
 }
 
+func (p *Parser) matchSingle(tokenType TokenType) bool {
+	if p.check(tokenType) {
+		p.advance()
+		return true
+	}
+	return false
+}
+
+// TODO: Use the value of `consume`.
 func (p *Parser) consume(tokenType TokenType, message string) (Token, error) {
 	if p.check(tokenType) {
 		return p.advance(), nil
@@ -329,19 +489,19 @@ func (p *Parser) synchronize() {
 
 		switch p.peek().TokenType {
 		case Class:
-			fallthrough
+			return
 		case Fun:
-			fallthrough
+			return
 		case Var:
-			fallthrough
+			return
 		case For:
-			fallthrough
+			return
 		case If:
-			fallthrough
+			return
 		case While:
-			fallthrough
+			return
 		case Print:
-			fallthrough
+			return
 		case Return:
 			return
 		}

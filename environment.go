@@ -13,6 +13,10 @@ func NewEnvironment() Environment {
 	}
 }
 
+func (e Environment) ToString() string {
+	return fmt.Sprintf("Environment{\n\tenclosing=%+v,\nvalues=%v\n}", e.enclosing, e.values)
+}
+
 func NewEnvironmentFromEnclosing(enclosing *Environment) Environment {
 	return Environment{
 		enclosing: enclosing,
@@ -22,10 +26,12 @@ func NewEnvironmentFromEnclosing(enclosing *Environment) Environment {
 
 func (e *Environment) Define(name string, value any) {
 	e.values[name] = value
+	// fmt.Printf("Environment.Define: %v -> %v -> %v\n\n", name, value, e)
 }
 
 func (e *Environment) Get(name Token) (any, error) {
 	if _, found := e.values[name.Lexeme]; found {
+		// fmt.Printf("Environment.Get: %v -> %v -> %v\n\n", name, e.values[name.Lexeme], e)
 		return e.values[name.Lexeme], nil
 	}
 	if e.enclosing != nil {
@@ -37,6 +43,7 @@ func (e *Environment) Get(name Token) (any, error) {
 func (e *Environment) Assign(name Token, value any) error {
 	if _, found := e.values[name.Lexeme]; found {
 		e.values[name.Lexeme] = value
+		// fmt.Printf("Environment.Assign: %v -> %v -> %v\n\n", name, value, e)
 		return nil
 	}
 
