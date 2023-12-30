@@ -12,16 +12,16 @@ import (
 // defineType generates the AST for a single type.
 // Wrap prefix with basename since we can't have nested classes?
 func defineType(file *os.File, baseName string, structName string, fields string) {
-	file.WriteString("type " + structName + baseName + " struct {\n")
+	WriteStringOrDie(file, "type "+structName+baseName+" struct {\n")
 	// Fields.
 	for _, field := range strings.Split(fields, ",") {
-		file.WriteString(" " + strings.TrimSpace(field))
-		file.WriteString("\n")
+		WriteStringOrDie(file, " "+strings.TrimSpace(field))
+		WriteStringOrDie(file, "\n")
 	}
-	file.WriteString("}\n\n")
-	file.WriteString("\n  func " + "(expr " + structName + baseName + ") Accept" + baseName + "(visitor " + baseName + "Visitor) (any, error) {\n")
-	file.WriteString("  return visitor.Visit" + structName + baseName + "(expr)\n")
-	file.WriteString("}\n")
+	WriteStringOrDie(file, "}\n\n")
+	WriteStringOrDie(file, "\n  func "+"(expr "+structName+baseName+") Accept"+baseName+"(visitor "+baseName+"Visitor) (any, error) {\n")
+	WriteStringOrDie(file, "  return visitor.Visit"+structName+baseName+"(expr)\n")
+	WriteStringOrDie(file, "}\n")
 }
 
 // defineAst generates the AST for a set of supported types.
@@ -34,13 +34,13 @@ func defineAst(dir string, baseName string, types []string) {
 	}
 	defer file.Close()
 
-	file.WriteString("package main\n\n")
+	WriteStringOrDie(file, "package main\n\n")
 	// The Visitor.
 	defineVisitor(file, baseName, types)
 
-	file.WriteString("type " + baseName + " interface {\n")
-	file.WriteString("  Accept" + baseName + "(visitor " + baseName + "Visitor) (any, error)")
-	file.WriteString("}\n\n")
+	WriteStringOrDie(file, "type "+baseName+" interface {\n")
+	WriteStringOrDie(file, "  Accept"+baseName+"(visitor "+baseName+"Visitor) (any, error)")
+	WriteStringOrDie(file, "}\n\n")
 
 	// Add the AST Classes.
 	for _, t := range types {
@@ -53,14 +53,14 @@ func defineAst(dir string, baseName string, types []string) {
 
 // We create separate visitors to avoid conflicts.
 func defineVisitor(file *os.File, baseName string, types []string) {
-	file.WriteString("type " + baseName + "Visitor interface {\n")
+	WriteStringOrDie(file, "type "+baseName+"Visitor interface {\n")
 	for _, t := range types {
 		typeName := strings.TrimSpace(strings.Split(t, ":")[0])
 		funcName := "  Visit" + typeName + baseName
 		param := strings.ToLower(baseName) + " " + typeName + baseName
-		file.WriteString(funcName + "(" + param + ") (any, error)\n")
+		WriteStringOrDie(file, funcName+"("+param+") (any, error)\n")
 	}
-	file.WriteString("}\n\n")
+	WriteStringOrDie(file, "}\n\n")
 }
 
 func formatFiles() {
@@ -88,6 +88,12 @@ func formatFiles() {
 
 	if err != nil {
 		fmt.Printf("Error walking the directory: %v\n", err)
+	}
+}
+
+func WriteStringOrDie(file *os.File, str string) {
+	if _, err := file.WriteString(str); err != nil {
+		panic((fmt.Sprintf("Error while writing to file: %v\n", err)))
 	}
 }
 
