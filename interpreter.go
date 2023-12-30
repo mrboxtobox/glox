@@ -25,6 +25,7 @@ type Interpreter struct {
 	environment *Environment
 	// TODO: Figure out if we need globals.
 	globals *Environment
+	locals  map[Expr]int
 }
 
 func NewInterpreter() *Interpreter {
@@ -34,14 +35,23 @@ func NewInterpreter() *Interpreter {
 	return &Interpreter{
 		environment: environment,
 		globals:     environment,
+		// Each expression node is its own object. No need for a nested
+		// tree.
+		locals: map[Expr]int{},
 	}
 }
 
 func (i Interpreter) Interpret(statements []Stmt) {
 	for _, statement := range statements {
 		if _, err := i.execute(statement); err != nil {
-			PrintRuntimeError(err.(RuntimeError))
-			break
+			switch typ := err.(type) {
+			case RuntimeError:
+				PrintRuntimeError(typ)
+				return
+			case FunctionReturn:
+				// TODO: Figure if it's okay to just continue.
+				continue
+			}
 		}
 	}
 }
@@ -50,6 +60,10 @@ func (i Interpreter) execute(statement Stmt) (any, error) {
 	// println("Executing -> ")
 	// fmt.Printf("  %T -> %v\n", statement, statement)
 	return statement.AcceptStmt(i)
+}
+
+func (i Interpreter) Resolve(expr Expr, depth int) {
+	i.locals[expr] = depth
 }
 
 func (i Interpreter) executeBlock(statements []Stmt, environment *Environment) error {
@@ -212,7 +226,15 @@ func (i Interpreter) VisitGroupingExpr(expr GroupingExpr) (any, error) {
 }
 
 func (i Interpreter) VisitVariableExpr(expr VariableExpr) (any, error) {
-	return i.environment.Get(expr.Name)
+	return i.lookUpVariable(expr.Name, expr)
+}
+
+func (i Interpreter) lookUpVariable(name Token, expr Expr) (any, error) {
+	if distance, found := i.locals[expr]; found {
+		return i.environment.GetAt(distance, name.Lexeme), nil
+	} else {
+		return i.globals.Get(name)
+	}
 }
 
 func (i Interpreter) evaluate(expr Expr) (any, error) {
@@ -312,7 +334,12 @@ func (i Interpreter) VisitAssignExpr(expr AssignExpr) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := i.environment.Assign(expr.Name, value); err != nil {
+	if distance, found := i.locals[expr]; found {
+		i.environment.AssignAt(distance, expr.Name, value)
+		return value, nil
+	}
+
+	if err = i.globals.Assign(expr.Name, value); err != nil {
 		return nil, err
 	}
 	return value, nil

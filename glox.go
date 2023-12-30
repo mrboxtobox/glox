@@ -33,7 +33,7 @@ func runFile(path string) {
 	run(string(bytes))
 
 	if hadError {
-		println("Encountered error. Exiting.")
+		println("Encountered syntax error. Exiting.")
 		// Indicate an error in the exit code.
 		os.Exit(SysexitsDataError)
 	}
@@ -70,8 +70,12 @@ func run(source string) {
 	// TODO: Find the best way to handle errors discovered.
 	if err != nil {
 		hadError = true
+		return
 	}
-	if hadError {
+	resolver := NewResolver(*intepreter)
+	// Stop if there was a resolution error.
+	if _, err := resolver.resolveAll(statements); err != nil {
+		hadError = true
 		return
 	}
 	intepreter.Interpret(statements)
