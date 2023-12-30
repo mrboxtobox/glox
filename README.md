@@ -1,3 +1,3 @@
 # `glox`
 
-Go implementation of Lox from [Crafting Interpreters](https://craftinginterpreters.com/) by @munificent.
+Go implementation of the Lox programming language from [Crafting Interpreters](https://craftinginterpreters.com/) by [@munificent@](https://github.com/munificent).
