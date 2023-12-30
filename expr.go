@@ -3,6 +3,7 @@ package main
 type ExprVisitor interface {
 	VisitAssignExpr(expr AssignExpr) (any, error)
 	VisitBinaryExpr(expr BinaryExpr) (any, error)
+	VisitCallExpr(expr CallExpr) (any, error)
 	VisitGroupingExpr(expr GroupingExpr) (any, error)
 	VisitLiteralExpr(expr LiteralExpr) (any, error)
 	VisitLogicalExpr(expr LogicalExpr) (any, error)
@@ -31,6 +32,16 @@ type BinaryExpr struct {
 
 func (expr BinaryExpr) AcceptExpr(visitor ExprVisitor) (any, error) {
 	return visitor.VisitBinaryExpr(expr)
+}
+
+type CallExpr struct {
+	Callee    Expr
+	Paren     Token
+	Arguments []Expr
+}
+
+func (expr CallExpr) AcceptExpr(visitor ExprVisitor) (any, error) {
+	return visitor.VisitCallExpr(expr)
 }
 
 type GroupingExpr struct {

@@ -46,6 +46,9 @@ func (p *Parser) statement() (Stmt, error) {
 	if p.matchSingle(Print) {
 		return p.printStatement()
 	}
+	if p.matchSingle(Return) {
+		return p.returnStatement()
+	}
 	if p.matchSingle(While) {
 		return p.whileStatement()
 	}
@@ -168,6 +171,13 @@ func (p *Parser) block() ([]Stmt, error) {
 }
 
 func (p *Parser) declaration() (Stmt, error) {
+	if p.matchSingle(Fun) {
+		function, err := p.function("function")
+		if err != nil {
+			return nil, err
+		}
+		return function, nil
+	}
 	if p.matchSingle(Var) {
 		declaration, err := p.varDeclaration()
 		if err == nil {
@@ -241,6 +251,24 @@ func (p *Parser) printStatement() (Stmt, error) {
 	return PrintStmt{value}, nil
 }
 
+func (p *Parser) returnStatement() (ReturnStmt, error) {
+	keyword := p.previous()
+	var value Expr
+	if !p.check(Semicolon) {
+		var err error
+		value, err = p.expression()
+		if err != nil {
+			return ReturnStmt{}, err
+		}
+	}
+	if _, err := p.consume(Semicolon, "Expect ';' after return value."); err != nil {
+		return ReturnStmt{}, err
+	}
+	return ReturnStmt{keyword, value}, nil
+
+}
+
+// TODO: Change the return types to be concrete.
 func (p *Parser) expressionStatement() (Stmt, error) {
 	expr, err := p.expression()
 	if err != nil {
@@ -251,6 +279,47 @@ func (p *Parser) expressionStatement() (Stmt, error) {
 		return nil, err
 	}
 	return ExpressionStmt{expr}, nil
+}
+
+func (p *Parser) function(kind string) (FunctionStmt, error) {
+	name, err := p.consume(Identifier, "Expect "+kind+" name.")
+	if err != nil {
+		return FunctionStmt{}, err
+	}
+	if _, err := p.consume(LeftParen, "Expect '(' after "+kind+" name."); err != nil {
+		return FunctionStmt{}, err
+	}
+	var parameters []Token
+	// Do-While loop.
+	if !p.check(RightParen) {
+		for {
+			if len(parameters) >= 255 {
+				PrintDetailedError(p.peek(), "Can't have more than 255 parameters.")
+			}
+			token, err := p.consume(Identifier, "Expect parameter name.")
+			if err != nil {
+				return FunctionStmt{}, err
+			}
+			parameters = append(parameters, token)
+			if !p.matchSingle(Comma) {
+				break
+			}
+		}
+	}
+	// fmt.Printf("%v\n\n", p.peek())
+	// fmt.Printf("%v\n\n", parameters)
+	// fmt.Printf("%v\n\n", p.tokens)
+	if _, err := p.consume(RightParen, "Expect ')' after parameters."); err != nil {
+		return FunctionStmt{}, err
+	}
+	if _, err := p.consume(LeftBrace, "Expect '{' before "+kind+" body."); err != nil {
+		return FunctionStmt{}, err
+	}
+	body, err := p.block()
+	if err != nil {
+		return FunctionStmt{}, err
+	}
+	return FunctionStmt{name, parameters, body}, nil
 }
 
 func (p *Parser) expression() (Expr, error) {
@@ -387,7 +456,54 @@ func (p *Parser) unary() (Expr, error) {
 		}
 		return UnaryExpr{operator, right}, nil
 	}
-	return p.primary()
+	return p.call()
+}
+
+func (p *Parser) finishCall(callee Expr) (Expr, error) {
+	var arguments []Expr
+	if !p.check(RightParen) {
+		expression, err := p.expression()
+		if err != nil {
+			return nil, err
+		}
+		arguments = append(arguments, expression)
+		for p.matchSingle(Comma) {
+			// Go doesn't seem to have a limit. So, use 255 (Java's limit).
+			// Only report an error but don't throw since the Parser is in a
+			// valid state.
+			if len(arguments) > 255 {
+				PrintDetailedError(p.peek(), "Can't have more than 255 arguments.")
+			}
+			expression, err = p.expression()
+			if err != nil {
+				return nil, err
+			}
+			arguments = append(arguments, expression)
+		}
+	}
+	paren, err := p.consume(RightParen, "Expect ')' after arguments.")
+	if err != nil {
+		return nil, err
+	}
+	return CallExpr{callee, paren, arguments}, nil
+}
+
+func (p *Parser) call() (Expr, error) {
+	expr, err := p.primary()
+	if err != nil {
+		return nil, err
+	}
+	for {
+		if p.matchSingle(LeftParen) {
+			expr, err = p.finishCall(expr)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			break
+		}
+	}
+	return expr, nil
 }
 
 func (p *Parser) primary() (Expr, error) {

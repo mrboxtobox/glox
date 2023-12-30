@@ -3,9 +3,11 @@ package main
 type StmtVisitor interface {
 	VisitBlockStmt(stmt BlockStmt) (any, error)
 	VisitExpressionStmt(stmt ExpressionStmt) (any, error)
+	VisitFunctionStmt(stmt FunctionStmt) (any, error)
 	VisitIfStmt(stmt IfStmt) (any, error)
 	VisitPrintStmt(stmt PrintStmt) (any, error)
 	VisitVarStmt(stmt VarStmt) (any, error)
+	VisitReturnStmt(stmt ReturnStmt) (any, error)
 	VisitWhileStmt(stmt WhileStmt) (any, error)
 }
 
@@ -27,6 +29,16 @@ type ExpressionStmt struct {
 
 func (expr ExpressionStmt) AcceptStmt(visitor StmtVisitor) (any, error) {
 	return visitor.VisitExpressionStmt(expr)
+}
+
+type FunctionStmt struct {
+	Name   Token
+	Params []Token
+	Body   []Stmt
+}
+
+func (expr FunctionStmt) AcceptStmt(visitor StmtVisitor) (any, error) {
+	return visitor.VisitFunctionStmt(expr)
 }
 
 type IfStmt struct {
@@ -54,6 +66,15 @@ type VarStmt struct {
 
 func (expr VarStmt) AcceptStmt(visitor StmtVisitor) (any, error) {
 	return visitor.VisitVarStmt(expr)
+}
+
+type ReturnStmt struct {
+	Keyword Token
+	Value   Expr
+}
+
+func (expr ReturnStmt) AcceptStmt(visitor StmtVisitor) (any, error) {
+	return visitor.VisitReturnStmt(expr)
 }
 
 type WhileStmt struct {

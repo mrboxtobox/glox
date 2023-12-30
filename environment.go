@@ -7,18 +7,18 @@ type Environment struct {
 	values    map[string]any
 }
 
-func NewEnvironment() Environment {
-	return Environment{
+func NewEnvironment() *Environment {
+	return &Environment{
 		values: map[string]any{},
 	}
 }
 
-func (e Environment) ToString() string {
+func (e *Environment) ToString() string {
 	return fmt.Sprintf("Environment{\n\tenclosing=%+v,\nvalues=%v\n}", e.enclosing, e.values)
 }
 
-func NewEnvironmentFromEnclosing(enclosing *Environment) Environment {
-	return Environment{
+func NewEnvironmentFromEnclosing(enclosing *Environment) *Environment {
+	return &Environment{
 		enclosing: enclosing,
 		values:    map[string]any{},
 	}

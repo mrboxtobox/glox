@@ -4,15 +4,36 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 )
 
+type Clock struct{}
+
+func (Clock) Arity() int {
+	return 0
+}
+
+func (Clock) Call(interpreter Interpreter, arguments []any) any {
+	return float64(time.Now().UnixNano()) / 1e9
+}
+
+func (Clock) ToString() string {
+	return "<native fn>"
+}
+
 type Interpreter struct {
-	environment Environment
+	environment *Environment
+	// TODO: Figure out if we need globals.
+	globals *Environment
 }
 
 func NewInterpreter() *Interpreter {
+	globals := NewEnvironment()
+	environment := globals
+	globals.Define("clock", Clock{})
 	return &Interpreter{
-		environment: NewEnvironment(),
+		environment: environment,
+		globals:     environment,
 	}
 }
 
@@ -26,10 +47,12 @@ func (i Interpreter) Interpret(statements []Stmt) {
 }
 
 func (i Interpreter) execute(statement Stmt) (any, error) {
+	// println("Executing -> ")
+	// fmt.Printf("  %T -> %v\n", statement, statement)
 	return statement.AcceptStmt(i)
 }
 
-func (i Interpreter) executeBlock(statements []Stmt, environment Environment) error {
+func (i Interpreter) executeBlock(statements []Stmt, environment *Environment) error {
 	// TODO: Figure out how this assignment will work.
 	previous := i.environment
 	// Use defer to ensure the environment is restored even in case of an early return.
@@ -46,7 +69,7 @@ func (i Interpreter) executeBlock(statements []Stmt, environment Environment) er
 }
 
 func (i Interpreter) VisitBlockStmt(stmt BlockStmt) (any, error) {
-	if err := i.executeBlock(stmt.Statements, NewEnvironmentFromEnclosing(&i.environment)); err != nil {
+	if err := i.executeBlock(stmt.Statements, NewEnvironmentFromEnclosing(i.environment)); err != nil {
 		return nil, err
 	}
 	return nil, nil
@@ -159,6 +182,31 @@ func (i Interpreter) VisitBinaryExpr(expr BinaryExpr) (any, error) {
 	return nil, nil
 }
 
+func (i Interpreter) VisitCallExpr(expr CallExpr) (any, error) {
+	callee, err := i.evaluate(expr.Callee)
+	if err != nil {
+		return nil, err
+	}
+	var arguments []any
+	for _, argument := range expr.Arguments {
+		value, err := i.evaluate(argument)
+		if err != nil {
+			return nil, err
+		}
+		arguments = append(arguments, value)
+	}
+	function, ok := callee.(Callable)
+	if !ok {
+		err := LogAndReturnError(expr.Paren, "Can only call functions and classes.")
+		return nil, err
+	}
+	if len(arguments) != function.Arity() {
+		err := LogAndReturnError(expr.Paren, fmt.Sprintf("Expected %d arguments but got %d.", +function.Arity(), len(arguments)))
+		return nil, err
+	}
+	return function.Call(i, arguments)
+}
+
 func (i Interpreter) VisitGroupingExpr(expr GroupingExpr) (any, error) {
 	return i.evaluate(expr.Expression)
 }
@@ -179,19 +227,27 @@ func (i Interpreter) VisitExpressionStmt(stmt ExpressionStmt) (any, error) {
 	return nil, nil
 }
 
+func (i Interpreter) VisitFunctionStmt(stmt FunctionStmt) (any, error) {
+	// Choose the encironment that is active when the function is declared, not
+	// called. Lexical scope surrounding the function declaration.
+	// TODO: Figure out why.
+	// Lexical scope instead of globals.
+	function := Function{stmt, i.environment}
+	i.environment.Define(stmt.Name.Lexeme, function)
+	return nil, nil
+}
+
 func (i Interpreter) VisitIfStmt(stmt IfStmt) (any, error) {
 	value, err := i.evaluate(stmt.Condition)
 	if err != nil {
 		return nil, err
 	}
 	if isTruthy(value) {
-		_, err := i.execute(stmt.ElseBranch)
-		if err != nil {
+		if _, err := i.execute(stmt.ThenBranch); err != nil {
 			return nil, err
 		}
-	} else {
-		_, err := i.execute(stmt.ThenBranch)
-		if err != nil {
+	} else if stmt.ElseBranch != nil {
+		if _, err := i.execute(stmt.ElseBranch); err != nil {
 			return nil, err
 		}
 	}
@@ -205,6 +261,21 @@ func (i Interpreter) VisitPrintStmt(stmt PrintStmt) (any, error) {
 	}
 	println(stringify(value))
 	return nil, nil
+}
+
+func (i Interpreter) VisitReturnStmt(stmt ReturnStmt) (any, error) {
+	var value any
+	if stmt.Value != nil {
+		var err error
+		value, err = i.evaluate(stmt.Value)
+		if err != nil {
+			return nil, err
+		}
+	}
+	// Go does not allow exceptions so return an error. Errors are propagated all
+	// the way up the stack(?).
+	// TODO: Verify if this is true.
+	return nil, FunctionReturn{value}
 }
 
 func (i Interpreter) VisitVarStmt(stmt VarStmt) (any, error) {
@@ -224,7 +295,6 @@ func (i Interpreter) VisitVarStmt(stmt VarStmt) (any, error) {
 func (i Interpreter) VisitWhileStmt(stmt WhileStmt) (any, error) {
 	for {
 		value, err := i.evaluate(stmt.Condition)
-
 		if err != nil {
 			return nil, err
 		}
@@ -275,16 +345,19 @@ func checkNumberOperands(operator Token, left any, right any) error {
 	return RuntimeError{operator, fmt.Sprintf("Operands (%v, %v) must be numbers but are (%T, %T)", left, right, left, right)}
 }
 
+// NOTE: Update this for any custom type that we want .
 func stringify(object any) string {
 	if object == nil {
 		return "nil"
 	}
 
-	switch object.(type) {
+	switch object := object.(type) {
 	case float64:
 		text := fmt.Sprintf("%f", object)
 		text, _ = strings.CutSuffix(text, ".000000")
 		return text
+	case Function:
+		return object.ToString()
 	}
 	return fmt.Sprintf("%v", object)
 }
