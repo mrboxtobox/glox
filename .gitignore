@@ -1,2 +1,3 @@
-glox
-genast
+bin/
+tests/
+.DS_Store
