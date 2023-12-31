@@ -4,9 +4,12 @@ type ExprVisitor interface {
 	VisitAssignExpr(expr AssignExpr) (any, error)
 	VisitBinaryExpr(expr BinaryExpr) (any, error)
 	VisitCallExpr(expr CallExpr) (any, error)
+	VisitGetExpr(expr GetExpr) (any, error)
 	VisitGroupingExpr(expr GroupingExpr) (any, error)
 	VisitLiteralExpr(expr LiteralExpr) (any, error)
 	VisitLogicalExpr(expr LogicalExpr) (any, error)
+	VisitSetExpr(expr SetExpr) (any, error)
+	VisitThisExpr(expr ThisExpr) (any, error)
 	VisitUnaryExpr(expr UnaryExpr) (any, error)
 	VisitVariableExpr(expr VariableExpr) (any, error)
 }
@@ -44,6 +47,15 @@ func (expr CallExpr) AcceptExpr(visitor ExprVisitor) (any, error) {
 	return visitor.VisitCallExpr(expr)
 }
 
+type GetExpr struct {
+	Object Expr
+	Name   Token
+}
+
+func (expr GetExpr) AcceptExpr(visitor ExprVisitor) (any, error) {
+	return visitor.VisitGetExpr(expr)
+}
+
 type GroupingExpr struct {
 	Expression Expr
 }
@@ -68,6 +80,24 @@ type LogicalExpr struct {
 
 func (expr LogicalExpr) AcceptExpr(visitor ExprVisitor) (any, error) {
 	return visitor.VisitLogicalExpr(expr)
+}
+
+type SetExpr struct {
+	Object Expr
+	Name   Token
+	Value  Expr
+}
+
+func (expr SetExpr) AcceptExpr(visitor ExprVisitor) (any, error) {
+	return visitor.VisitSetExpr(expr)
+}
+
+type ThisExpr struct {
+	Keyword Token
+}
+
+func (expr ThisExpr) AcceptExpr(visitor ExprVisitor) (any, error) {
+	return visitor.VisitThisExpr(expr)
 }
 
 type UnaryExpr struct {

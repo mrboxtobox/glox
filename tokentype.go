@@ -50,7 +50,7 @@ func (t TokenType) String() string {
 		return "Number"
 	case And:
 		return "And"
-	case Class:
+	case ClassToken:
 		return "Class"
 	case Else:
 		return "Else"
@@ -119,7 +119,7 @@ const (
 
 	// Keywords
 	And
-	Class
+	ClassToken
 	Else
 	False
 	Fun

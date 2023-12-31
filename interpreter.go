@@ -13,11 +13,11 @@ func (Clock) Arity() int {
 	return 0
 }
 
-func (Clock) Call(interpreter Interpreter, arguments []any) any {
-	return float64(time.Now().UnixNano()) / 1e9
+func (Clock) Call(interpreter Interpreter, arguments []any) (any, error) {
+	return float64(time.Now().UnixMilli()), nil
 }
 
-func (Clock) ToString() string {
+func (Clock) String() string {
 	return "<native fn>"
 }
 
@@ -89,6 +89,21 @@ func (i Interpreter) VisitBlockStmt(stmt BlockStmt) (any, error) {
 	return nil, nil
 }
 
+func (i Interpreter) VisitClassStmt(stmt ClassStmt) (any, error) {
+	i.environment.Define(stmt.Name.Lexeme, nil)
+	methods := map[string]Function{}
+	for _, method := range stmt.Methods {
+		isInitializer := method.Name.Lexeme == "init"
+		function := NewFunction(method, i.environment, isInitializer)
+		methods[method.Name.Lexeme] = function
+	}
+	class := NewClass(stmt.Name.Lexeme, methods)
+	if err := i.environment.Assign(stmt.Name, class); err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
 func (i Interpreter) VisitLiteralExpr(expr LiteralExpr) (any, error) {
 	return expr.Value, nil
 }
@@ -109,6 +124,29 @@ func (i Interpreter) VisitLogicalExpr(expr LogicalExpr) (any, error) {
 		}
 	}
 	return i.evaluate(expr.Right)
+}
+
+func (i Interpreter) VisitSetExpr(expr SetExpr) (any, error) {
+	object, err := i.evaluate(expr.Object)
+	if err != nil {
+		return nil, err
+	}
+	instance, ok := object.(*Instance)
+	fmt.Printf("%T, %v\n", object, ok)
+	if !ok {
+		err := LogAndReturnError(expr.Name, "Only instances have fields.")
+		return nil, err
+	}
+	value, err := i.evaluate(expr.Value)
+	if err != nil {
+		return nil, err
+	}
+	instance.Set(expr.Name, value)
+	return value, nil
+}
+
+func (i Interpreter) VisitThisExpr(expr ThisExpr) (any, error) {
+	return i.lookUpVariable(expr.Keyword, expr)
 }
 
 func (i Interpreter) VisitUnaryExpr(expr UnaryExpr) (any, error) {
@@ -210,6 +248,7 @@ func (i Interpreter) VisitCallExpr(expr CallExpr) (any, error) {
 		arguments = append(arguments, value)
 	}
 	function, ok := callee.(Callable)
+	fmt.Printf("%T, %v\n", callee, callee)
 	if !ok {
 		err := LogAndReturnError(expr.Paren, "Can only call functions and classes.")
 		return nil, err
@@ -219,6 +258,18 @@ func (i Interpreter) VisitCallExpr(expr CallExpr) (any, error) {
 		return nil, err
 	}
 	return function.Call(i, arguments)
+}
+
+func (i Interpreter) VisitGetExpr(expr GetExpr) (any, error) {
+	object, err := i.evaluate(expr.Object)
+	if err != nil {
+		return nil, err
+	}
+	if instance, ok := object.(*Instance); ok {
+		return instance.Get(expr.Name)
+	}
+	err = LogAndReturnError(expr.Name, "Only instances have properties.")
+	return nil, err
 }
 
 func (i Interpreter) VisitGroupingExpr(expr GroupingExpr) (any, error) {
@@ -254,7 +305,7 @@ func (i Interpreter) VisitFunctionStmt(stmt FunctionStmt) (any, error) {
 	// called. Lexical scope surrounding the function declaration.
 	// TODO: Figure out why.
 	// Lexical scope instead of globals.
-	function := Function{stmt, i.environment}
+	function := NewFunction(stmt, i.environment, false)
 	i.environment.Define(stmt.Name.Lexeme, function)
 	return nil, nil
 }
@@ -383,8 +434,9 @@ func stringify(object any) string {
 		text := fmt.Sprintf("%f", object)
 		text, _ = strings.CutSuffix(text, ".000000")
 		return text
-	case Function:
-		return object.ToString()
+	}
+	if stringer, ok := object.(fmt.Stringer); ok {
+		return stringer.String()
 	}
 	return fmt.Sprintf("%v", object)
 }

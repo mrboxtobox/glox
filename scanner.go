@@ -7,7 +7,7 @@ import (
 
 var reservedWords = map[string]TokenType{
 	"and":    And,
-	"class":  Class,
+	"class":  ClassToken,
 	"else":   Else,
 	"false":  False,
 	"for":    For,

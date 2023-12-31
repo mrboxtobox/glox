@@ -171,6 +171,13 @@ func (p *Parser) block() ([]Stmt, error) {
 }
 
 func (p *Parser) declaration() (Stmt, error) {
+	if p.matchSingle(ClassToken) {
+		class, err := p.classDeclaration()
+		if err != nil {
+			return nil, err
+		}
+		return class, nil
+	}
 	if p.matchSingle(Fun) {
 		function, err := p.function("function")
 		if err != nil {
@@ -202,6 +209,28 @@ func (p *Parser) declaration() (Stmt, error) {
 	} else {
 		panic(err)
 	}
+}
+
+func (p *Parser) classDeclaration() (Stmt, error) {
+	name, err := p.consume(Identifier, "Expect class name.")
+	if err != nil {
+		return nil, err
+	}
+	if _, err = p.consume(LeftBrace, "Expect '{' before class body."); err != nil {
+		return nil, err
+	}
+	var methods []FunctionStmt
+	for !p.check(RightBrace) && !p.isAtEnd() {
+		method, err := p.function("method")
+		if err != nil {
+			return nil, err
+		}
+		methods = append(methods, method)
+	}
+	if _, err := p.consume(RightBrace, "Expect '}' after class body."); err != nil {
+		return nil, err
+	}
+	return ClassStmt{name, methods}, nil
 }
 
 func (p *Parser) varDeclaration() (Stmt, error) {
@@ -344,6 +373,8 @@ func (p *Parser) assignment() (Expr, error) {
 		if ve, ok := expr.(VariableExpr); ok {
 			name := ve.Name
 			return AssignExpr{name, value}, nil
+		} else if get, ok := expr.(GetExpr); ok {
+			return SetExpr{get.Object, get.Name, value}, nil
 		}
 		// We don't throw an error because the parser is not in a bad state.
 		PrintDetailedError(equals, "Invalid assignment target.")
@@ -499,6 +530,12 @@ func (p *Parser) call() (Expr, error) {
 			if err != nil {
 				return nil, err
 			}
+		} else if p.matchSingle(Dot) {
+			name, err := p.consume(Identifier, "Expect property name after '.'.")
+			if err != nil {
+				return nil, err
+			}
+			expr = GetExpr{expr, name}
 		} else {
 			break
 		}
@@ -518,6 +555,9 @@ func (p *Parser) primary() (Expr, error) {
 	}
 	if p.match([]TokenType{Number, String}) {
 		return LiteralExpr{p.previous().Literal}, nil
+	}
+	if p.matchSingle(This) {
+		return ThisExpr{p.previous()}, nil
 	}
 	if p.matchSingle(Identifier) {
 		return VariableExpr{p.previous()}, nil
@@ -604,7 +644,7 @@ func (p *Parser) synchronize() {
 		}
 
 		switch p.peek().TokenType {
-		case Class:
+		case ClassToken:
 			return
 		case Fun:
 			return

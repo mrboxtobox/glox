@@ -3,30 +3,42 @@ package main
 import "fmt"
 
 type FunctionType int
+type ClassType int
 
 const (
 	NoneFunction FunctionType = iota
 	InFunction
+	InitializerFunction
+	Method
+)
+
+const (
+	NoneClass ClassType = iota
+	InClass
 )
 
 type Resolver struct {
 	interpreter     Interpreter
 	scopes          []map[string]bool
 	currentFunction FunctionType
+	currentClass    ClassType
 }
 
 func NewResolver(interpreter Interpreter) Resolver {
-	return Resolver{interpreter, []map[string]bool{}, NoneFunction}
+	return Resolver{
+		interpreter:     interpreter,
+		scopes:          []map[string]bool{},
+		currentFunction: NoneFunction,
+		currentClass:    NoneClass,
+	}
 }
 
-// VisitAssignExpr implements ExprVisitor.
 func (r *Resolver) VisitAssignExpr(expr AssignExpr) (any, error) {
 	r.resolveExpr(expr.Value)
 	r.resolveLocal(expr, expr.Name)
 	return nil, nil
 }
 
-// VisitVarStmt implements StmtVisitor.
 func (r *Resolver) VisitVarStmt(stmt VarStmt) (any, error) {
 	r.declare(stmt.Name)
 	if stmt.Initializer != nil {
@@ -43,7 +55,6 @@ func (r *Resolver) VisitBinaryExpr(expr BinaryExpr) (any, error) {
 	return nil, nil
 }
 
-// VisitCallExpr implements ExprVisitor.
 func (r *Resolver) VisitCallExpr(expr CallExpr) (any, error) {
 	r.resolveExpr(expr.Callee)
 	for _, argument := range expr.Arguments {
@@ -52,21 +63,40 @@ func (r *Resolver) VisitCallExpr(expr CallExpr) (any, error) {
 	return nil, nil
 }
 
-// VisitGroupingExpr implements ExprVisitor.
+func (r *Resolver) VisitGetExpr(expr GetExpr) (any, error) {
+	r.resolveExpr(expr.Object)
+	// Properties are resolved dynamically.
+	return nil, nil
+}
+
 func (r *Resolver) VisitGroupingExpr(expr GroupingExpr) (any, error) {
 	r.resolveExpr(expr.Expression)
 	return nil, nil
 }
 
-// VisitLiteralExpr implements ExprVisitor.
 func (r *Resolver) VisitLiteralExpr(expr LiteralExpr) (any, error) {
 	return nil, nil
 }
 
-// VisitLogicalExpr implements ExprVisitor.
 func (r *Resolver) VisitLogicalExpr(expr LogicalExpr) (any, error) {
 	r.resolveExpr(expr.Left)
 	r.resolveExpr(expr.Right)
+	return nil, nil
+}
+
+func (r *Resolver) VisitSetExpr(expr SetExpr) (any, error) {
+	r.resolveExpr(expr.Value)
+	r.resolveExpr(expr.Object)
+	return nil, nil
+}
+
+func (r *Resolver) VisitThisExpr(expr ThisExpr) (any, error) {
+	if r.currentClass == NoneClass {
+		PrintDetailedError(expr.Keyword, "Can't use 'this' outside of a class.")
+		return nil, nil
+	}
+
+	r.resolveLocal(expr, expr.Keyword)
 	return nil, nil
 }
 
@@ -102,6 +132,27 @@ func (r *Resolver) VisitBlockStmt(stmt BlockStmt) (any, error) {
 		return nil, err
 	}
 	r.endScope()
+	return nil, nil
+}
+
+func (r *Resolver) VisitClassStmt(stmt ClassStmt) (any, error) {
+	enclosingClass := r.currentClass
+	r.currentClass = InClass
+	r.declare(stmt.Name)
+	r.define(stmt.Name)
+	r.beginScope()
+	r.scopes[len(r.scopes)-1]["this"] = true
+	for _, method := range stmt.Methods {
+		declaration := Method
+		if method.Name.Lexeme == "init" {
+			declaration = InitializerFunction
+		}
+		if err := r.resolveFunction(method, declaration); err != nil {
+			return nil, err
+		}
+	}
+	r.endScope()
+	r.currentClass = enclosingClass
 	return nil, nil
 }
 
@@ -146,6 +197,9 @@ func (r *Resolver) VisitReturnStmt(stmt ReturnStmt) (any, error) {
 		PrintDetailedError(stmt.Keyword, "Can't return from top-level code.")
 	}
 	if stmt.Value != nil {
+		if r.currentFunction == InitializerFunction {
+			PrintDetailedError(stmt.Keyword, "Can't return a value from an initializer.")
+		}
 		r.resolveExpr(stmt.Value)
 	}
 	return nil, nil

@@ -2,6 +2,7 @@ package main
 
 type StmtVisitor interface {
 	VisitBlockStmt(stmt BlockStmt) (any, error)
+	VisitClassStmt(stmt ClassStmt) (any, error)
 	VisitExpressionStmt(stmt ExpressionStmt) (any, error)
 	VisitFunctionStmt(stmt FunctionStmt) (any, error)
 	VisitIfStmt(stmt IfStmt) (any, error)
@@ -21,6 +22,15 @@ type BlockStmt struct {
 
 func (expr BlockStmt) AcceptStmt(visitor StmtVisitor) (any, error) {
 	return visitor.VisitBlockStmt(expr)
+}
+
+type ClassStmt struct {
+	Name    Token
+	Methods []FunctionStmt
+}
+
+func (expr ClassStmt) AcceptStmt(visitor StmtVisitor) (any, error) {
+	return visitor.VisitClassStmt(expr)
 }
 
 type ExpressionStmt struct {
