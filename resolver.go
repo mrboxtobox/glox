@@ -117,12 +117,14 @@ func (r *Resolver) VisitUnaryExpr(expr UnaryExpr) (any, error) {
 	return nil, nil
 }
 
-// VisitVariableExpr implements ExprVisitor.
 func (r *Resolver) VisitVariableExpr(expr VariableExpr) (any, error) {
-	if len(r.scopes) > 0 && !r.scopes[len(r.scopes)-1][expr.Name.Lexeme] {
-		// If the varaible exists in the scope and it's value is false, print an
+
+	if len(r.scopes) > 0 {
+		// If the variable exists in the scope and its value is false, print an
 		// error to indicate it shouldn't be used.
-		PrintDetailedError(expr.Name, "Can't read local variable in its own initializer.")
+		if defined, found := r.scopes[len(r.scopes)-1][expr.Name.Lexeme]; found && !defined {
+			PrintDetailedError(expr.Name, "Can't read local variable in its own initializer.")
+		}
 	}
 	r.resolveLocal(expr, expr.Name)
 	return nil, nil
