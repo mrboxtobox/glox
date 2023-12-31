@@ -90,14 +90,41 @@ func (i Interpreter) VisitBlockStmt(stmt BlockStmt) (any, error) {
 }
 
 func (i Interpreter) VisitClassStmt(stmt ClassStmt) (any, error) {
+	var superclass any
+	if stmt.Superclass != (VariableExpr{}) {
+		var err error
+		superclass, err = i.evaluate(stmt.Superclass)
+		if err != nil {
+			return nil, err
+		}
+
+		if _, ok := superclass.(*Class); !ok {
+			err := LogAndReturnError(stmt.Superclass.Name, "Superclass must be a class.")
+			return nil, err
+		}
+	}
+
 	i.environment.Define(stmt.Name.Lexeme, nil)
+	if stmt.Superclass != (VariableExpr{}) {
+		i.environment = NewEnvironmentFromEnclosing(i.environment)
+		i.environment.Define("super", superclass)
+	}
+
 	methods := map[string]Function{}
 	for _, method := range stmt.Methods {
 		isInitializer := method.Name.Lexeme == "init"
 		function := NewFunction(method, i.environment, isInitializer)
 		methods[method.Name.Lexeme] = function
 	}
-	class := NewClass(stmt.Name.Lexeme, methods)
+	var class *Class
+	if superclass == nil {
+		class = NewClass(stmt.Name.Lexeme, nil, methods)
+	} else {
+		class = NewClass(stmt.Name.Lexeme, superclass.(*Class), methods)
+	}
+	if superclass != nil {
+		i.environment = i.environment.enclosing
+	}
 	if err := i.environment.Assign(stmt.Name, class); err != nil {
 		return nil, err
 	}
@@ -132,7 +159,6 @@ func (i Interpreter) VisitSetExpr(expr SetExpr) (any, error) {
 		return nil, err
 	}
 	instance, ok := object.(*Instance)
-	fmt.Printf("%T, %v\n", object, ok)
 	if !ok {
 		err := LogAndReturnError(expr.Name, "Only instances have fields.")
 		return nil, err
@@ -143,6 +169,22 @@ func (i Interpreter) VisitSetExpr(expr SetExpr) (any, error) {
 	}
 	instance.Set(expr.Name, value)
 	return value, nil
+}
+
+func (i Interpreter) VisitSuperExpr(expr SuperExpr) (any, error) {
+	distance, found := i.locals[expr]
+	if !found {
+		return nil, fmt.Errorf("Expected %v to be found in locals\n", expr)
+	}
+	superclass := i.environment.GetAt(distance, "super").(*Class)
+	// The environment where “this” is bound is always right inside the environment where we store “super”.
+	this := i.environment.GetAt(distance-1, "this").(*Instance)
+	method, found := superclass.FindMethod(expr.Method.Lexeme)
+	if !found {
+		err := LogAndReturnError(expr.Method, "Undefined property '"+expr.Keyword.Lexeme+"'.")
+		return nil, err
+	}
+	return method.Bind(this), nil
 }
 
 func (i Interpreter) VisitThisExpr(expr ThisExpr) (any, error) {
@@ -248,7 +290,6 @@ func (i Interpreter) VisitCallExpr(expr CallExpr) (any, error) {
 		arguments = append(arguments, value)
 	}
 	function, ok := callee.(Callable)
-	fmt.Printf("%T, %v\n", callee, callee)
 	if !ok {
 		err := LogAndReturnError(expr.Paren, "Can only call functions and classes.")
 		return nil, err

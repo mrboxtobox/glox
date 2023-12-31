@@ -216,6 +216,13 @@ func (p *Parser) classDeclaration() (Stmt, error) {
 	if err != nil {
 		return nil, err
 	}
+	var superclass VariableExpr
+	if p.matchSingle(Less) {
+		if _, err := p.consume(Identifier, "Expect superclass name."); err != nil {
+			return nil, err
+		}
+		superclass = VariableExpr{p.previous()}
+	}
 	if _, err = p.consume(LeftBrace, "Expect '{' before class body."); err != nil {
 		return nil, err
 	}
@@ -230,7 +237,7 @@ func (p *Parser) classDeclaration() (Stmt, error) {
 	if _, err := p.consume(RightBrace, "Expect '}' after class body."); err != nil {
 		return nil, err
 	}
-	return ClassStmt{name, methods}, nil
+	return ClassStmt{name, superclass, methods}, nil
 }
 
 func (p *Parser) varDeclaration() (Stmt, error) {
@@ -555,6 +562,17 @@ func (p *Parser) primary() (Expr, error) {
 	}
 	if p.match([]TokenType{Number, String}) {
 		return LiteralExpr{p.previous().Literal}, nil
+	}
+	if p.matchSingle(Super) {
+		keyword := p.previous()
+		if _, err := p.consume(Dot, "Expect '.' after 'super'."); err != nil {
+			return nil, err
+		}
+		method, err := p.consume(Identifier, "Expect superclass method name.")
+		if err != nil {
+			return nil, err
+		}
+		return SuperExpr{keyword, method}, nil
 	}
 	if p.matchSingle(This) {
 		return ThisExpr{p.previous()}, nil

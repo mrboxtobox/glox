@@ -15,6 +15,7 @@ const (
 const (
 	NoneClass ClassType = iota
 	InClass
+	SubClass
 )
 
 type Resolver struct {
@@ -90,6 +91,16 @@ func (r *Resolver) VisitSetExpr(expr SetExpr) (any, error) {
 	return nil, nil
 }
 
+func (r *Resolver) VisitSuperExpr(expr SuperExpr) (any, error) {
+	if r.currentClass == NoneClass {
+		PrintDetailedError(expr.Keyword, "Can't use 'super' outside of a class.")
+	} else if r.currentClass != SubClass {
+		PrintDetailedError(expr.Keyword, "Can't use 'super' in a class with no superclass.")
+	}
+	r.resolveLocal(expr, expr.Keyword)
+	return nil, nil
+}
+
 func (r *Resolver) VisitThisExpr(expr ThisExpr) (any, error) {
 	if r.currentClass == NoneClass {
 		PrintDetailedError(expr.Keyword, "Can't use 'this' outside of a class.")
@@ -140,6 +151,16 @@ func (r *Resolver) VisitClassStmt(stmt ClassStmt) (any, error) {
 	r.currentClass = InClass
 	r.declare(stmt.Name)
 	r.define(stmt.Name)
+	if stmt.Superclass != (VariableExpr{}) && stmt.Name.Lexeme == stmt.Superclass.Name.Lexeme {
+		PrintDetailedError(stmt.Superclass.Name, "A class can't inherit from itself.")
+	}
+
+	if stmt.Superclass != (VariableExpr{}) {
+		r.currentClass = SubClass
+		r.resolveExpr(stmt.Superclass)
+		r.beginScope()
+		r.scopes[len(r.scopes)-1]["super"] = true
+	}
 	r.beginScope()
 	r.scopes[len(r.scopes)-1]["this"] = true
 	for _, method := range stmt.Methods {
@@ -152,6 +173,9 @@ func (r *Resolver) VisitClassStmt(stmt ClassStmt) (any, error) {
 		}
 	}
 	r.endScope()
+	if stmt.Superclass != (VariableExpr{}) {
+		r.endScope()
+	}
 	r.currentClass = enclosingClass
 	return nil, nil
 }

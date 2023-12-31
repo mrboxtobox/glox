@@ -114,6 +114,7 @@ func main() {
 		"Literal  : Value interface{}",
 		"Logical  : Left Expr, Operator Token, Right Expr",
 		"Set      : Object Expr, Name Token, Value Expr",
+		"Super    : Keyword Token, Method Token",
 		"This     : Keyword Token",
 		"Unary    : Operator Token, Right Expr",
 		"Variable : Name Token",
@@ -121,7 +122,7 @@ func main() {
 
 	defineAst(dir, "Stmt", []string{
 		"Block      : Statements []Stmt",
-		"Class      : Name Token, Methods []FunctionStmt",
+		"Class      : Name Token, Superclass VariableExpr, Methods []FunctionStmt",
 		"Expression : Expression Expr",
 		"Function   : Name Token, Params []Token, Body []Stmt",
 		"If         : Condition Expr, ThenBranch Stmt, ElseBranch Stmt",

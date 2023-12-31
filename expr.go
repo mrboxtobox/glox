@@ -9,6 +9,7 @@ type ExprVisitor interface {
 	VisitLiteralExpr(expr LiteralExpr) (any, error)
 	VisitLogicalExpr(expr LogicalExpr) (any, error)
 	VisitSetExpr(expr SetExpr) (any, error)
+	VisitSuperExpr(expr SuperExpr) (any, error)
 	VisitThisExpr(expr ThisExpr) (any, error)
 	VisitUnaryExpr(expr UnaryExpr) (any, error)
 	VisitVariableExpr(expr VariableExpr) (any, error)
@@ -90,6 +91,15 @@ type SetExpr struct {
 
 func (expr SetExpr) AcceptExpr(visitor ExprVisitor) (any, error) {
 	return visitor.VisitSetExpr(expr)
+}
+
+type SuperExpr struct {
+	Keyword Token
+	Method  Token
+}
+
+func (expr SuperExpr) AcceptExpr(visitor ExprVisitor) (any, error) {
+	return visitor.VisitSuperExpr(expr)
 }
 
 type ThisExpr struct {
