@@ -88,7 +88,7 @@ arguments      → expression ( "," expression )* ;
 
 ### Lexical Grammar
 
-```
+```ebnf
 NUMBER         → DIGIT+ ( "." DIGIT+ )? ;
 STRING         → "\"" <any char except "\"">* "\"" ;
 IDENTIFIER     → ALPHA ( ALPHA | DIGIT )* ;
