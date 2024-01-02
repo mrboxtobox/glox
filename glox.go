@@ -6,13 +6,13 @@ import (
 	"os"
 )
 
+// See https://man.freebsd.org/cgi/man.cgi?query=sysexits.
 const (
-	// https://man.freebsd.org/cgi/man.cgi?query=sysexits
-	// The command was used	incorrectly.
+	// The command was used incorrectly.
 	SysexitsUsage = 64
-	// The input data was incorrect	in some	way.
+	// The input data was incorrect in some way.
 	SysexitsDataError = 65
-	// An internal software	error has been detected.
+	// An internal software error has been detected.
 	SysexitsUsageSoftware = 70
 )
 
@@ -24,61 +24,75 @@ var hadError bool
 // Whether we've encountered a runtime error.
 var hadRuntimeError bool
 
+func PrintDetailedError(token Token, message string) {
+	if token.TokenType == EOFToken {
+		report(token.Line, "at end", message)
+	} else {
+		report(token.Line, "at '"+token.Lexeme+"'", message)
+	}
+}
+
+func PrintRuntimeError(err RuntimeError) {
+	println(fmt.Sprintf("[line %d]%s\n", err.Token.Line, err.Message))
+	hadRuntimeError = true
+}
+
 func runFile(path string) {
 	bytes, err := os.ReadFile(path)
 	if err != nil {
 		fmt.Printf("Error reading file %q: %v\n", path, err)
 		os.Exit(SysexitsUsageSoftware)
 	}
-	run(string(bytes))
-
-	if hadError {
-		println("Encountered syntax error. Exiting.")
-		// Indicate an error in the exit code.
-		os.Exit(SysexitsDataError)
-	}
-	if hadRuntimeError {
-		println("Encountered runtime error. Exiting.")
+	err = run(string(bytes))
+	switch typedErr := err.(type) {
+	case RuntimeError:
+		fmt.Printf("[line %d]%s\n", typedErr.Token.Line, typedErr.Message)
+		println("Encountered a runtime error. Exiting.")
+		os.Exit(SysexitsUsageSoftware)
+	default:
+		fmt.Printf("Encountered an unexpected error (%T). Exiting.", typedErr)
 		os.Exit(SysexitsUsageSoftware)
 	}
 }
 
 func runPrompt() {
-	// Seems docs recommend using Scanner vs. Reader for reading line-by-line.
 	reader := bufio.NewReader(os.Stdin)
 
 	for {
 		print("> ")
 		bytes, err := reader.ReadBytes('\n')
 		if err != nil {
+			fmt.Printf("Encountered error wile reading input: %v.\n", err)
 			os.Exit(1)
 		}
 		if bytes == nil {
 			break
 		}
-		run(string(bytes))
 		// Don't kill the session if the user makes an error.
-		hadError = false
+		_ = run(string(bytes))
 	}
 }
 
-func run(source string) {
+func run(source string) error {
 	s := NewScanner(source)
 	tokens := s.ScanTokens()
 	parser := NewParser(tokens)
 	statements, err := parser.Parse()
-	// TODO: Find the best way to handle errors discovered.
 	if err != nil {
-		hadError = true
-		return
+		return err
 	}
-	resolver := NewResolver(*intepreter)
+	resolver := NewResolver(intepreter)
 	// Stop if there was a resolution error.
 	if _, err := resolver.resolveAll(statements); err != nil {
-		hadError = true
-		return
+		return err
 	}
-	intepreter.Interpret(statements)
+	if hadError {
+		return fmt.Errorf("Encountered an error")
+	}
+	if err := intepreter.Interpret(statements); err != nil {
+		return err
+	}
+	return nil
 }
 
 // Minimal error reporting.
@@ -90,19 +104,6 @@ func printErr(line int, message string) {
 func report(line int, where, message string) {
 	println(fmt.Sprintf("[%d] Error %s: %s", line, where, message))
 	hadError = true
-}
-
-func PrintDetailedError(token Token, message string) {
-	if token.TokenType == EOF {
-		report(token.Line, "at end", message)
-	} else {
-		report(token.Line, "at '"+token.Lexeme+"'", message)
-	}
-}
-
-func PrintRuntimeError(err RuntimeError) {
-	println(fmt.Sprintf("%s\n[line %d]", err.Message, err.Token.Line))
-	hadRuntimeError = true
 }
 
 func main() {

@@ -17,3 +17,9 @@ all:
 run: all
 	# Running the interpreter...
 	./bin/glox
+
+example: all
+	##############################
+	# Running the interpreter... #
+	##############################
+	./bin/glox examples/fibonacci.g

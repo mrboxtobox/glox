@@ -18,7 +18,7 @@ func (Clock) Call(interpreter Interpreter, arguments []any) (any, error) {
 }
 
 func (Clock) String() string {
-	return "<native fn>"
+	return "<native fn: clock>"
 }
 
 type Interpreter struct {
@@ -41,19 +41,21 @@ func NewInterpreter() *Interpreter {
 	}
 }
 
-func (i Interpreter) Interpret(statements []Stmt) {
+func (i Interpreter) Interpret(statements []Stmt) error {
 	for _, statement := range statements {
 		if _, err := i.execute(statement); err != nil {
-			switch typ := err.(type) {
-			case RuntimeError:
-				PrintRuntimeError(typ)
-				return
+			switch typedErr := err.(type) {
 			case FunctionReturn:
-				// TODO: Figure if it's okay to just continue.
 				continue
+			case RuntimeError:
+				println(fmt.Sprintf("[line %d]%s\n", typedErr.Token.Line, typedErr.Message))
+				return typedErr
+			default:
+				return typedErr
 			}
 		}
 	}
+	return nil
 }
 
 func (i Interpreter) execute(statement Stmt) (any, error) {
@@ -141,7 +143,7 @@ func (i Interpreter) VisitLogicalExpr(expr LogicalExpr) (any, error) {
 		return nil, err
 	}
 
-	if expr.Operator.TokenType == Or {
+	if expr.Operator.TokenType == OrToken {
 		if isTruthy(left) {
 			return left, nil
 		}
@@ -197,12 +199,12 @@ func (i Interpreter) VisitUnaryExpr(expr UnaryExpr) (any, error) {
 		return nil, err
 	}
 	switch expr.Operator.TokenType {
-	case Minus:
+	case MinusToken:
 		if err := checkNumberOperand(expr.Operator, right); err != nil {
 			return nil, err
 		}
 		return -(right.(float64)), nil
-	case Bang:
+	case BangToken:
 		return !isTruthy(right), nil
 	}
 	// Unreachable.
@@ -220,38 +222,38 @@ func (i Interpreter) VisitBinaryExpr(expr BinaryExpr) (any, error) {
 	}
 
 	switch expr.Operator.TokenType {
-	case Greater:
+	case GreaterToken:
 		if err := checkNumberOperands(expr.Operator, left, right); err != nil {
 			return nil, err
 		}
 		return left.(float64) > right.(float64), nil
-	case GreaterEqual:
+	case GreaterEqualToken:
 		if err := checkNumberOperands(expr.Operator, left, right); err != nil {
 			return nil, err
 		}
 		return left.(float64) >= right.(float64), nil
-	case Less:
+	case LessToken:
 		if err := checkNumberOperands(expr.Operator, left, right); err != nil {
 			return nil, err
 		}
 		return left.(float64) < right.(float64), nil
-	case LessEqual:
+	case LessEqualToken:
 		if err := checkNumberOperands(expr.Operator, left, right); err != nil {
 			return nil, err
 		}
 		return left.(float64) <= right.(float64), nil
 	// NOTE: The two cases below differ from the Ch. 7 Java implementation.
 	// IMPORTANT: NaN != NaN according to the IEEE spec.
-	case BangEqual:
+	case BangEqualToken:
 		return left == right, nil
-	case EqualEqual:
+	case EqualEqualToken:
 		return left != right, nil
-	case Minus:
+	case MinusToken:
 		if err := checkNumberOperands(expr.Operator, left, right); err != nil {
 			return nil, err
 		}
 		return left.(float64) - right.(float64), nil
-	case Plus:
+	case PlusToken:
 		leftKind := reflect.TypeOf(left).Kind()
 		rightKind := reflect.TypeOf(right).Kind()
 		if leftKind == reflect.Float64 && rightKind == reflect.Float64 {
@@ -261,12 +263,12 @@ func (i Interpreter) VisitBinaryExpr(expr BinaryExpr) (any, error) {
 			return left.(string) + right.(string), nil
 		}
 		return nil, RuntimeError{expr.Operator, fmt.Sprintf("Operands (%q, %q) must be two numbers or two strings", left, right)}
-	case Slash:
+	case SlashToken:
 		if err := checkNumberOperands(expr.Operator, left, right); err != nil {
 			return nil, err
 		}
 		return left.(float64) / right.(float64), nil
-	case Star:
+	case StarToken:
 		if err := checkNumberOperands(expr.Operator, left, right); err != nil {
 			return nil, err
 		}

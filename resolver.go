@@ -19,13 +19,13 @@ const (
 )
 
 type Resolver struct {
-	interpreter     Interpreter
+	interpreter     *Interpreter
 	scopes          []map[string]bool
 	currentFunction FunctionType
 	currentClass    ClassType
 }
 
-func NewResolver(interpreter Interpreter) Resolver {
+func NewResolver(interpreter *Interpreter) Resolver {
 	return Resolver{
 		interpreter:     interpreter,
 		scopes:          []map[string]bool{},
@@ -120,7 +120,7 @@ func (r *Resolver) VisitUnaryExpr(expr UnaryExpr) (any, error) {
 func (r *Resolver) VisitVariableExpr(expr VariableExpr) (any, error) {
 
 	if len(r.scopes) > 0 {
-		// If the variable exists in the scope and its value is false, print an
+		// IfToken the variable exists in the scope and its value is false, print an
 		// error to indicate it shouldn't be used.
 		if defined, found := r.scopes[len(r.scopes)-1][expr.Name.Lexeme]; found && !defined {
 			PrintDetailedError(expr.Name, "Can't read local variable in its own initializer.")
@@ -191,7 +191,7 @@ func (r *Resolver) VisitExpressionStmt(stmt ExpressionStmt) (any, error) {
 // VisitFunctionStmt implements StmtVisitor.
 func (r *Resolver) VisitFunctionStmt(stmt FunctionStmt) (any, error) {
 	// Declare and define first.
-	// This lets a function recursively refer to itself inside its own body.
+	// ThisToken lets a function recursively refer to itself inside its own body.
 	r.declare(stmt.Name)
 	r.define(stmt.Name)
 	if err := r.resolveFunction(stmt, InFunction); err != nil {
@@ -278,7 +278,7 @@ func (r *Resolver) resolveLocal(expr Expr, name Token) {
 	n := len(r.scopes)
 	for i := n - 1; i >= 0; i-- {
 		if _, found := r.scopes[i][name.Lexeme]; found {
-			r.interpreter.Resolve(expr, n-1-i) // n-1-i = Number of hops
+			r.interpreter.Resolve(expr, n-1-i) // n-1-i = NumberToken of hops
 			return
 		}
 	}

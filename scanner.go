@@ -6,24 +6,25 @@ import (
 )
 
 var reservedWords = map[string]TokenType{
-	"and":    And,
+	"and":    AndToken,
 	"class":  ClassToken,
-	"else":   Else,
-	"false":  False,
-	"for":    For,
-	"fun":    Fun,
-	"if":     If,
-	"nil":    Nil,
-	"or":     Or,
-	"print":  Print,
-	"return": Return,
-	"super":  Super,
-	"this":   This,
-	"true":   True,
-	"var":    Var,
-	"while":  While,
+	"else":   ElseToken,
+	"false":  FalseToken,
+	"for":    ForToken,
+	"fun":    FunToken,
+	"if":     IfToken,
+	"nil":    NilToken,
+	"or":     OrToken,
+	"print":  PrintToken,
+	"return": ReturnToken,
+	"super":  SuperToken,
+	"this":   ThisToken,
+	"true":   TrueToken,
+	"var":    VarToken,
+	"while":  WhileToken,
 }
 
+// Creates a new scanner.
 func NewScanner(source string) *Scanner {
 	return &Scanner{
 		source:  source,
@@ -33,27 +34,28 @@ func NewScanner(source string) *Scanner {
 	}
 }
 
-// TODO: Need to makes sure the source text is an ASCII character.
 type Scanner struct {
 	// Raw source code.
 	source string
 	// First character in lexeme being scanned.
 	start int
-	// Character currently being considered.
+	// Character currently being scanned.
 	current int
-	// What source line `current` is on. For producing tokens that know their location.
-	line   int
+	// What source line `current` is on. Used to assign line location to tokens.
+	line int
+	// Scanned tokens.
 	tokens []Token
 }
 
-func (s Scanner) ScanTokens() []Token {
+// Returns an ordered list of Tokens from scanning the source.
+func (s *Scanner) ScanTokens() []Token {
 	for !s.isAtEnd() {
 		s.start = s.current
 		s.scanToken()
 	}
 
 	s.tokens = append(s.tokens, Token{
-		TokenType: EOF,
+		TokenType: EOFToken,
 		Lexeme:    "",
 		Literal:   nil,
 		Line:      s.line,
@@ -66,48 +68,48 @@ func (s *Scanner) scanToken() {
 	// Handle the single characters first.
 	switch c {
 	case '(':
-		s.addToken(LeftParen)
+		s.addToken(LeftParenToken)
 	case ')':
-		s.addToken(RightParen)
+		s.addToken(RightParenToken)
 	case '{':
-		s.addToken(LeftBrace)
+		s.addToken(LeftBraceToken)
 	case '}':
-		s.addToken(RightBrace)
+		s.addToken(RightBraceToken)
 	case ',':
-		s.addToken(Comma)
+		s.addToken(CommaToken)
 	case '.':
-		s.addToken(Dot)
+		s.addToken(DotToken)
 	case '-':
-		s.addToken(Minus)
+		s.addToken(MinusToken)
 	case '+':
-		s.addToken(Plus)
+		s.addToken(PlusToken)
 	case ';':
-		s.addToken(Semicolon)
+		s.addToken(SemicolonToken)
 	case '*':
-		s.addToken(Star)
+		s.addToken(StarToken)
 	case '!':
 		if s.match('=') {
-			s.addToken(BangEqual)
+			s.addToken(BangEqualToken)
 		} else {
-			s.addToken(Bang)
+			s.addToken(BangToken)
 		}
 	case '=':
 		if s.match('=') {
-			s.addToken(EqualEqual)
+			s.addToken(EqualEqualToken)
 		} else {
-			s.addToken(Equal)
+			s.addToken(EqualToken)
 		}
 	case '<':
 		if s.match('=') {
-			s.addToken(LessEqual)
+			s.addToken(LessEqualToken)
 		} else {
-			s.addToken(Less)
+			s.addToken(LessToken)
 		}
 	case '>':
 		if s.match('=') {
-			s.addToken(GreaterEqual)
+			s.addToken(GreaterEqualToken)
 		} else {
-			s.addToken(Greater)
+			s.addToken(GreaterToken)
 		}
 	case '/':
 		if s.match('/') {
@@ -116,7 +118,7 @@ func (s *Scanner) scanToken() {
 				s.advance()
 			}
 		} else {
-			s.addToken(Slash)
+			s.addToken(SlashToken)
 		}
 	case ' ':
 	case '\r':
@@ -132,6 +134,7 @@ func (s *Scanner) scanToken() {
 		// print(-123.abs()) will give you -123 since -123 is considered as negation
 		// applied to the number 123 and -123.abs() is really -(123.abs()).
 		if isDigit(c) {
+			println("handling digit ->", s.source[s.start:s.current])
 			s.scanNumber()
 		} else if isAlpha(c) {
 			s.scanIdentifier()
@@ -159,10 +162,13 @@ func (s *Scanner) scanString() {
 	s.advance()
 	// Trim the surround quotes
 	value := string([]rune(s.source)[s.start+1 : s.current-1])
-	s.addTokenWithLiteral(String, value)
+	s.addTokenWithLiteral(StringToken, value)
 }
 
 func (s *Scanner) scanNumber() {
+	println("scannign number ->", s.source[s.start:s.current])
+	println("s.peek(), s.peekNext()", string([]rune{s.peek()}), string([]rune{s.peekNext()}))
+	fmt.Printf("'%c' -> '%c'\n", s.peek(), s.peekNext())
 	// Consume the rest of the digits.
 	for isDigit(s.peek()) {
 		s.advance()
@@ -170,6 +176,7 @@ func (s *Scanner) scanNumber() {
 
 	// Check for the fractional part.
 	if s.peek() == '.' && isDigit(s.peekNext()) {
+		s.advance()
 		// Consume the '.'
 		for isDigit(s.peek()) {
 			s.advance()
@@ -181,7 +188,7 @@ func (s *Scanner) scanNumber() {
 	if err != nil {
 		printErr(s.line, fmt.Sprintf("Unable to parse string: %v.", err))
 	}
-	s.addTokenWithLiteral(Number, n)
+	s.addTokenWithLiteral(NumberToken, n)
 }
 
 func (s *Scanner) scanIdentifier() {
@@ -189,20 +196,20 @@ func (s *Scanner) scanIdentifier() {
 		s.advance()
 	}
 
-	// TODO: Make substring conversation its own function.
+	// TODO: Refactor substring conversion into its own function.
 	text := string([]rune(s.source)[s.start:s.current])
-	TokenType, ok := reservedWords[text]
+	tokenType, ok := reservedWords[text]
 	if !ok {
-		TokenType = Identifier
+		tokenType = IdentifierToken
 	}
-	s.addToken(TokenType)
+	s.addToken(tokenType)
 }
 
 func (s *Scanner) match(expected rune) bool {
 	if s.isAtEnd() {
 		return false
 	}
-	// TODO: How efficient is this []rune cast?
+	// TODO: Figure out how efficient this []rune cast is.
 	currRune := []rune(s.source)[s.current]
 	if currRune != expected {
 		return false
@@ -234,7 +241,7 @@ func (s *Scanner) isAtEnd() bool {
 
 // advance consumes and returns the next character.
 func (s *Scanner) advance() rune {
-	// TODO: This advances by one rune?
+	// TODO: ThisToken advances by one rune?
 	c := []rune(s.source)[s.current]
 	s.current++
 	return c

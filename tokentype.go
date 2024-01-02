@@ -2,138 +2,137 @@ package main
 
 type TokenType int
 
-func (t TokenType) String() string {
-	switch t {
-	case LeftParen:
-		return "LeftParen"
-	case RightParen:
-		return "RightParen"
-	case LeftBrace:
-		return "LeftBrace"
-	case RightBrace:
-		return "RightBrace"
-	case Comma:
-		return "Comma"
-	case Dot:
-		return "Dot"
-	case Minus:
-		return "Minus"
-	case Plus:
-		return "Plus"
-	case Semicolon:
-		return "Semicolon"
-	case Slash:
-		return "Slash"
-	case Star:
-		return "Star"
-	case Bang:
-		return "Bang"
-	case BangEqual:
-		return "BangEqual"
-	case Equal:
-		return "Equal"
-	case EqualEqual:
-		return "EqualEqual"
-	case Greater:
-		return "Greater"
-	case GreaterEqual:
-		return "GreaterEqual"
-	case Less:
-		return "Less"
-	case LessEqual:
-		return "LessEqual"
-	case Identifier:
-		return "Identifier"
-	case String:
-		return "String"
-	case Number:
-		return "Number"
-	case And:
-		return "And"
-	case ClassToken:
-		return "Class"
-	case Else:
-		return "Else"
-	case False:
-		return "False"
-	case Fun:
-		return "Fun"
-	case For:
-		return "For"
-	case If:
-		return "If"
-	case Nil:
-		return "Nil"
-	case Or:
-		return "Or"
-	case Print:
-		return "Print"
-	case Return:
-		return "Return"
-	case Super:
-		return "Super"
-	case This:
-		return "This"
-	case True:
-		return "True"
-	case Var:
-		return "Var"
-	case While:
-		return "While"
-	case EOF:
-		return "EOF"
-	default:
-		return "UnknownType"
-	}
-
-}
-
 const (
 	// Single-character tokens.
-	LeftParen TokenType = iota
-	RightParen
-	LeftBrace
-	RightBrace
-	Comma
-	Dot
-	Minus
-	Plus
-	Semicolon
-	Slash
-	Star
+	LeftParenToken TokenType = iota
+	RightParenToken
+	LeftBraceToken
+	RightBraceToken
+	CommaToken
+	DotToken
+	MinusToken
+	PlusToken
+	SemicolonToken
+	SlashToken
+	StarToken
 
-	// One or two character tokens
-	Bang
-	BangEqual
-	Equal
-	EqualEqual
-	Greater
-	GreaterEqual
-	Less
-	LessEqual
+	// One or two character tokens.
+	BangToken
+	BangEqualToken
+	EqualToken
+	EqualEqualToken
+	GreaterToken
+	GreaterEqualToken
+	LessToken
+	LessEqualToken
 
-	// Literals
-	Identifier
-	String
-	Number
+	// Literals.
+	IdentifierToken
+	StringToken
+	NumberToken
 
 	// Keywords
-	And
+	AndToken
 	ClassToken
-	Else
-	False
-	Fun
-	For
-	If
-	Nil
-	Or
-	Print
-	Return
-	Super
-	This
-	True
-	Var
-	While
+	ElseToken
+	FalseToken
+	FunToken
+	ForToken
+	IfToken
+	NilToken
+	OrToken
+	PrintToken
+	ReturnToken
+	SuperToken
+	ThisToken
+	TrueToken
+	VarToken
+	WhileToken
 
-	EOF
+	EOFToken
 )
+
+func (t TokenType) String() string {
+	switch t {
+	case LeftParenToken:
+		return "LeftParenToken"
+	case RightParenToken:
+		return "RightParenToken"
+	case LeftBraceToken:
+		return "LeftBraceToken"
+	case RightBraceToken:
+		return "RightBraceToken"
+	case CommaToken:
+		return "CommaToken"
+	case DotToken:
+		return "DotToken"
+	case MinusToken:
+		return "MinusToken"
+	case PlusToken:
+		return "PlusToken"
+	case SemicolonToken:
+		return "SemicolonToken"
+	case SlashToken:
+		return "SlashToken"
+	case StarToken:
+		return "StarToken"
+	case BangToken:
+		return "BangToken"
+	case BangEqualToken:
+		return "BangEqualToken"
+	case EqualToken:
+		return "EqualToken"
+	case EqualEqualToken:
+		return "EqualEqualToken"
+	case GreaterToken:
+		return "GreaterToken"
+	case GreaterEqualToken:
+		return "GreaterEqualToken"
+	case LessToken:
+		return "LessToken"
+	case LessEqualToken:
+		return "LessEqualToken"
+	case IdentifierToken:
+		return "IdentifierToken"
+	case StringToken:
+		return "StringToken"
+	case NumberToken:
+		return "NumberToken"
+	case AndToken:
+		return "AndToken"
+	case ClassToken:
+		return "ClassToken"
+	case ElseToken:
+		return "ElseToken"
+	case FalseToken:
+		return "FalseToken"
+	case FunToken:
+		return "FunToken"
+	case ForToken:
+		return "ForToken"
+	case IfToken:
+		return "IfToken"
+	case NilToken:
+		return "NilToken"
+	case OrToken:
+		return "OrToken"
+	case PrintToken:
+		return "PrintToken"
+	case ReturnToken:
+		return "ReturnToken"
+	case SuperToken:
+		return "SuperToken"
+	case ThisToken:
+		return "ThisToken"
+	case TrueToken:
+		return "TrueToken"
+	case VarToken:
+		return "VarToken"
+	case WhileToken:
+		return "WhileToken"
+	case EOFToken:
+		return "EOFToken"
+	default:
+		return "UnknownToken"
+	}
+}
