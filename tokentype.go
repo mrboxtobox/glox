@@ -55,84 +55,84 @@ const (
 func (t TokenType) String() string {
 	switch t {
 	case LeftParenToken:
-		return "LeftParenToken"
+		return "LeftParen"
 	case RightParenToken:
-		return "RightParenToken"
+		return "RightParen"
 	case LeftBraceToken:
-		return "LeftBraceToken"
+		return "LeftBrace"
 	case RightBraceToken:
-		return "RightBraceToken"
+		return "RightBrace"
 	case CommaToken:
-		return "CommaToken"
+		return "Comma"
 	case DotToken:
-		return "DotToken"
+		return "Dot"
 	case MinusToken:
-		return "MinusToken"
+		return "Minus"
 	case PlusToken:
-		return "PlusToken"
+		return "Plus"
 	case SemicolonToken:
-		return "SemicolonToken"
+		return "Semicolon"
 	case SlashToken:
-		return "SlashToken"
+		return "Slash"
 	case StarToken:
-		return "StarToken"
+		return "Star"
 	case BangToken:
-		return "BangToken"
+		return "Bang"
 	case BangEqualToken:
-		return "BangEqualToken"
+		return "BangEqual"
 	case EqualToken:
-		return "EqualToken"
+		return "Equal"
 	case EqualEqualToken:
-		return "EqualEqualToken"
+		return "EqualEqual"
 	case GreaterToken:
-		return "GreaterToken"
+		return "Greater"
 	case GreaterEqualToken:
-		return "GreaterEqualToken"
+		return "GreaterEqual"
 	case LessToken:
-		return "LessToken"
+		return "Less"
 	case LessEqualToken:
-		return "LessEqualToken"
+		return "LessEqual"
 	case IdentifierToken:
-		return "IdentifierToken"
+		return "Identifier"
 	case StringToken:
-		return "StringToken"
+		return "String"
 	case NumberToken:
-		return "NumberToken"
+		return "Number"
 	case AndToken:
-		return "AndToken"
+		return "And"
 	case ClassToken:
-		return "ClassToken"
+		return "Class"
 	case ElseToken:
-		return "ElseToken"
+		return "Else"
 	case FalseToken:
-		return "FalseToken"
+		return "False"
 	case FunToken:
-		return "FunToken"
+		return "Fun"
 	case ForToken:
-		return "ForToken"
+		return "For"
 	case IfToken:
-		return "IfToken"
+		return "If"
 	case NilToken:
-		return "NilToken"
+		return "Nil"
 	case OrToken:
-		return "OrToken"
+		return "Or"
 	case PrintToken:
-		return "PrintToken"
+		return "Print"
 	case ReturnToken:
-		return "ReturnToken"
+		return "Return"
 	case SuperToken:
-		return "SuperToken"
+		return "Super"
 	case ThisToken:
-		return "ThisToken"
+		return "This"
 	case TrueToken:
-		return "TrueToken"
+		return "True"
 	case VarToken:
-		return "VarToken"
+		return "Var"
 	case WhileToken:
-		return "WhileToken"
+		return "While"
 	case EOFToken:
-		return "EOFToken"
+		return "EOF"
 	default:
-		return "UnknownToken"
+		return "Unknown"
 	}
 }
