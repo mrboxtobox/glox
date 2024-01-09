@@ -134,7 +134,6 @@ func (s *Scanner) scanToken() {
 		// print(-123.abs()) will give you -123 since -123 is considered as negation
 		// applied to the number 123 and -123.abs() is really -(123.abs()).
 		if isDigit(c) {
-			println("handling digit ->", s.source[s.start:s.current])
 			s.scanNumber()
 		} else if isAlpha(c) {
 			s.scanIdentifier()
@@ -166,9 +165,6 @@ func (s *Scanner) scanString() {
 }
 
 func (s *Scanner) scanNumber() {
-	println("scannign number ->", s.source[s.start:s.current])
-	println("s.peek(), s.peekNext()", string([]rune{s.peek()}), string([]rune{s.peekNext()}))
-	fmt.Printf("'%c' -> '%c'\n", s.peek(), s.peekNext())
 	// Consume the rest of the digits.
 	for isDigit(s.peek()) {
 		s.advance()

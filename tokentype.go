@@ -133,6 +133,6 @@ func (t TokenType) String() string {
 	case EOFToken:
 		return "EOF"
 	default:
-		return "Unknown"
+		return "UnknownToken"
 	}
 }

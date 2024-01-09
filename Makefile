@@ -18,6 +18,9 @@ run: all
 	# Running the interpreter...
 	./bin/glox
 
+test: all
+	go test tests/lox_test.go
+
 example: all
 	##############################
 	# Running the interpreter... #

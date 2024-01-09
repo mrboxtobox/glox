@@ -33,7 +33,7 @@ func PrintDetailedError(token Token, message string) {
 }
 
 func PrintRuntimeError(err RuntimeError) {
-	println(fmt.Sprintf("[line %d]%s\n", err.Token.Line, err.Message))
+	println(fmt.Sprintf("[line %d] Runtime error: %s\n", err.Token.Line, err.Message))
 	hadRuntimeError = true
 }
 
@@ -43,15 +43,16 @@ func runFile(path string) {
 		fmt.Printf("Error reading file %q: %v\n", path, err)
 		os.Exit(SysexitsUsageSoftware)
 	}
-	err = run(string(bytes))
-	switch typedErr := err.(type) {
-	case RuntimeError:
-		fmt.Printf("[line %d]%s\n", typedErr.Token.Line, typedErr.Message)
-		println("Encountered a runtime error. Exiting.")
-		os.Exit(SysexitsUsageSoftware)
-	default:
-		fmt.Printf("Encountered an unexpected error (%T). Exiting.", typedErr)
-		os.Exit(SysexitsUsageSoftware)
+	if err := run(string(bytes)); err != nil {
+		switch typedErr := err.(type) {
+		case RuntimeError:
+			fmt.Printf("[line %d] Runtime error: %s\n", typedErr.Token.Line, typedErr.Message)
+			// println("Encountered a runtime error. Exiting.")
+			os.Exit(SysexitsUsageSoftware)
+		default:
+			// fmt.Printf("Encountered an unexpected error (%T). Exiting.\n", typedErr)
+			os.Exit(SysexitsUsageSoftware)
+		}
 	}
 }
 
@@ -102,6 +103,9 @@ func printErr(line int, message string) {
 
 // TODO: Extend this to show users the offending line and point to the column.
 func report(line int, where, message string) {
+	if where == "" {
+		println(fmt.Sprintf("[%d] Error: %s", line, message))
+	}
 	println(fmt.Sprintf("[%d] Error %s: %s", line, where, message))
 	hadError = true
 }

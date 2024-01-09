@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"reflect"
-	"strings"
+	"strconv"
 	"time"
 )
 
@@ -25,7 +25,8 @@ type Interpreter struct {
 	environment *Environment
 	// TODO: Figure out if we need globals.
 	globals *Environment
-	locals  map[Expr]int
+	// string is the ptr of Expr
+	locals map[string]int
 }
 
 func NewInterpreter() *Interpreter {
@@ -37,7 +38,7 @@ func NewInterpreter() *Interpreter {
 		globals:     environment,
 		// Each expression node is its own object. No need for a nested
 		// tree.
-		locals: map[Expr]int{},
+		locals: map[string]int{},
 	}
 }
 
@@ -48,7 +49,7 @@ func (i Interpreter) Interpret(statements []Stmt) error {
 			case FunctionReturn:
 				continue
 			case RuntimeError:
-				println(fmt.Sprintf("[line %d]%s\n", typedErr.Token.Line, typedErr.Message))
+				println(fmt.Sprintf("[line %d] Runtime error: %s\n", typedErr.Token.Line, typedErr.Message))
 				return typedErr
 			default:
 				return typedErr
@@ -64,8 +65,9 @@ func (i Interpreter) execute(statement Stmt) (any, error) {
 	return statement.AcceptStmt(i)
 }
 
+// TODO: Figure out if this hash is the correct way.
 func (i Interpreter) Resolve(expr Expr, depth int) {
-	i.locals[expr] = depth
+	i.locals[fmt.Sprintf("%v", expr)] = depth
 }
 
 func (i Interpreter) executeBlock(statements []Stmt, environment *Environment) error {
@@ -174,7 +176,7 @@ func (i Interpreter) VisitSetExpr(expr SetExpr) (any, error) {
 }
 
 func (i Interpreter) VisitSuperExpr(expr SuperExpr) (any, error) {
-	distance, found := i.locals[expr]
+	distance, found := i.locals[fmt.Sprintf("%v", expr)]
 	if !found {
 		return nil, fmt.Errorf("Expected %v to be found in locals\n", expr)
 	}
@@ -245,9 +247,9 @@ func (i Interpreter) VisitBinaryExpr(expr BinaryExpr) (any, error) {
 	// NOTE: The two cases below differ from the Ch. 7 Java implementation.
 	// IMPORTANT: NaN != NaN according to the IEEE spec.
 	case BangEqualToken:
-		return left == right, nil
-	case EqualEqualToken:
 		return left != right, nil
+	case EqualEqualToken:
+		return left == right, nil
 	case MinusToken:
 		if err := checkNumberOperands(expr.Operator, left, right); err != nil {
 			return nil, err
@@ -262,7 +264,7 @@ func (i Interpreter) VisitBinaryExpr(expr BinaryExpr) (any, error) {
 		if leftKind == reflect.String && rightKind == reflect.String {
 			return left.(string) + right.(string), nil
 		}
-		return nil, RuntimeError{expr.Operator, fmt.Sprintf("Operands (%q, %q) must be two numbers or two strings", left, right)}
+		return nil, RuntimeError{expr.Operator, fmt.Sprintf("Operands (%v, %v) must be two numbers or two strings", left, right)}
 	case SlashToken:
 		if err := checkNumberOperands(expr.Operator, left, right); err != nil {
 			return nil, err
@@ -324,7 +326,7 @@ func (i Interpreter) VisitVariableExpr(expr VariableExpr) (any, error) {
 }
 
 func (i Interpreter) lookUpVariable(name Token, expr Expr) (any, error) {
-	if distance, found := i.locals[expr]; found {
+	if distance, found := i.locals[fmt.Sprintf("%v", expr)]; found {
 		return i.environment.GetAt(distance, name.Lexeme), nil
 	} else {
 		return i.globals.Get(name)
@@ -428,7 +430,7 @@ func (i Interpreter) VisitAssignExpr(expr AssignExpr) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	if distance, found := i.locals[expr]; found {
+	if distance, found := i.locals[fmt.Sprintf("%v", expr)]; found {
 		i.environment.AssignAt(distance, expr.Name, value)
 		return value, nil
 	}
@@ -463,7 +465,7 @@ func checkNumberOperands(operator Token, left any, right any) error {
 	if leftKind == reflect.Float64 && rightKind == reflect.Float64 {
 		return nil
 	}
-	return RuntimeError{operator, fmt.Sprintf("Operands (%v, %v) must be numbers but are (%T, %T)", left, right, left, right)}
+	return RuntimeError{operator, fmt.Sprintf("Operands (%v, %v) must be numbers but are (%T, %T).", left, right, left, right)}
 }
 
 // NOTE: Update this for any custom type that we want .
@@ -474,9 +476,7 @@ func stringify(object any) string {
 
 	switch object := object.(type) {
 	case float64:
-		text := fmt.Sprintf("%f", object)
-		text, _ = strings.CutSuffix(text, ".000000")
-		return text
+		return strconv.FormatFloat(object, 'f', -1, 64)
 	}
 	if stringer, ok := object.(fmt.Stringer); ok {
 		return stringer.String()
