@@ -35,6 +35,7 @@ func NewResolver(interpreter *Interpreter) Resolver {
 }
 
 func (r *Resolver) VisitAssignExpr(expr AssignExpr) (any, error) {
+	fmt.Println("VisistAssignExpr")
 	r.resolveExpr(expr.Value)
 	r.resolveLocal(expr, expr.Name)
 	return nil, nil
@@ -49,7 +50,6 @@ func (r *Resolver) VisitVarStmt(stmt VarStmt) (any, error) {
 	return nil, nil
 }
 
-// VisitBinaryExpr implements ExprVisitor.
 func (r *Resolver) VisitBinaryExpr(expr BinaryExpr) (any, error) {
 	r.resolveExpr(expr.Left)
 	r.resolveExpr(expr.Right)
@@ -118,7 +118,6 @@ func (r *Resolver) VisitUnaryExpr(expr UnaryExpr) (any, error) {
 }
 
 func (r *Resolver) VisitVariableExpr(expr VariableExpr) (any, error) {
-
 	if len(r.scopes) > 0 {
 		// IfToken the variable exists in the scope and its value is false, print an
 		// error to indicate it shouldn't be used.
@@ -275,6 +274,7 @@ func (r *Resolver) define(name Token) {
 }
 
 func (r *Resolver) resolveLocal(expr Expr, name Token) {
+	fmt.Println("resolveLocal", r.scopes)
 	n := len(r.scopes)
 	for i := n - 1; i >= 0; i-- {
 		if _, found := r.scopes[i][name.Lexeme]; found {
@@ -287,6 +287,7 @@ func (r *Resolver) resolveLocal(expr Expr, name Token) {
 }
 
 func (r *Resolver) resolveExpr(expr Expr) {
+	// fmt.Println("xxx resolveExpr")
 	if _, err := expr.AcceptExpr(r); err != nil {
 		// TODO: Handle error properly.
 		PrintResolverError(err)

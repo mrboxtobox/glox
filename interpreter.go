@@ -26,7 +26,7 @@ type Interpreter struct {
 	// TODO: Figure out if we need globals.
 	globals *Environment
 	// string is the ptr of Expr
-	locals map[string]int
+	locals map[Expr]int
 }
 
 func NewInterpreter() *Interpreter {
@@ -38,7 +38,7 @@ func NewInterpreter() *Interpreter {
 		globals:     environment,
 		// Each expression node is its own object. No need for a nested
 		// tree.
-		locals: map[string]int{},
+		locals: map[Expr]int{},
 	}
 }
 
@@ -67,7 +67,8 @@ func (i Interpreter) execute(statement Stmt) (any, error) {
 
 // TODO: Figure out if this hash is the correct way.
 func (i Interpreter) Resolve(expr Expr, depth int) {
-	i.locals[fmt.Sprintf("%v", expr)] = depth
+	// fmt.Println("xxx Resolving->", expr, &expr, depth)
+	i.locals[expr] = depth
 }
 
 func (i Interpreter) executeBlock(statements []Stmt, environment *Environment) error {
@@ -176,7 +177,7 @@ func (i Interpreter) VisitSetExpr(expr SetExpr) (any, error) {
 }
 
 func (i Interpreter) VisitSuperExpr(expr SuperExpr) (any, error) {
-	distance, found := i.locals[fmt.Sprintf("%v", expr)]
+	distance, found := i.locals[expr]
 	if !found {
 		return nil, fmt.Errorf("Expected %v to be found in locals\n", expr)
 	}
@@ -247,17 +248,23 @@ func (i Interpreter) VisitBinaryExpr(expr BinaryExpr) (any, error) {
 	// NOTE: The two cases below differ from the Ch. 7 Java implementation.
 	// IMPORTANT: NaN != NaN according to the IEEE spec.
 	case BangEqualToken:
-		return left != right, nil
+		return !reflect.DeepEqual(left, right), nil
 	case EqualEqualToken:
-		return left == right, nil
+		// TODO: Figur out if equal is necessary.
+		return reflect.DeepEqual(left, right), nil
 	case MinusToken:
 		if err := checkNumberOperands(expr.Operator, left, right); err != nil {
 			return nil, err
 		}
 		return left.(float64) - right.(float64), nil
 	case PlusToken:
-		leftKind := reflect.TypeOf(left).Kind()
-		rightKind := reflect.TypeOf(right).Kind()
+		var leftKind, rightKind any
+		if left != nil {
+			leftKind = reflect.TypeOf(left).Kind()
+		}
+		if right != nil {
+			rightKind = reflect.TypeOf(right).Kind()
+		}
 		if leftKind == reflect.Float64 && rightKind == reflect.Float64 {
 			return left.(float64) + right.(float64), nil
 		}
@@ -326,7 +333,8 @@ func (i Interpreter) VisitVariableExpr(expr VariableExpr) (any, error) {
 }
 
 func (i Interpreter) lookUpVariable(name Token, expr Expr) (any, error) {
-	if distance, found := i.locals[fmt.Sprintf("%v", expr)]; found {
+	// println("xxx", fmt.Sprintf("%v", &expr))
+	if distance, found := i.locals[expr]; found {
 		return i.environment.GetAt(distance, name.Lexeme), nil
 	} else {
 		return i.globals.Get(name)
@@ -426,11 +434,12 @@ func (i Interpreter) VisitWhileStmt(stmt WhileStmt) (any, error) {
 }
 
 func (i Interpreter) VisitAssignExpr(expr AssignExpr) (any, error) {
+	// println("xxx VisitAssignExpr")
 	value, err := i.evaluate(expr.Value)
 	if err != nil {
 		return nil, err
 	}
-	if distance, found := i.locals[fmt.Sprintf("%v", expr)]; found {
+	if distance, found := i.locals[expr]; found {
 		i.environment.AssignAt(distance, expr.Name, value)
 		return value, nil
 	}

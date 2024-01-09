@@ -237,7 +237,7 @@ func (s *Scanner) isAtEnd() bool {
 
 // advance consumes and returns the next character.
 func (s *Scanner) advance() rune {
-	// TODO: ThisToken advances by one rune?
+	// TODO: This advances by one rune?
 	c := []rune(s.source)[s.current]
 	s.current++
 	return c

@@ -77,7 +77,7 @@ func formatFiles() {
 		}
 
 		if !info.IsDir() && filepath.Ext(path) == ".go" {
-			fmt.Printf("Formatting: %s\n", path)
+			// fmt.Printf("Formatting: %s\n", path)
 			cmd := exec.Command("gofmt", "-w", path)
 			if err := cmd.Run(); err != nil {
 				fmt.Printf("Error running gofmt: %v\n", err)
